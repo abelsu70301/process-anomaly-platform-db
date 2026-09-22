@@ -1,0 +1,4 @@
+venv/
+__pycache__/
+.env
+!.env.example #不要忽略的內容，去識別化的env的範例

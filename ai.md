@@ -37,3 +37,137 @@
 - AI 協助：理解 GET、POST、Request、Response、HTTP Status Code，以及 Pydantic `BaseModel` 的用途。
 - 驗證：使用 FastAPI `/docs` 實際執行 API；正常資料可成功取得回應，錯誤輸入則可觀察到 422 回應。
 - 我的理解：FastAPI 可透過 Pydantic 定義輸入資料格式，在資料進入函式前先進行驗證；`/docs` 則可用來實際送出 Request 並觀察 Response。
+
+---
+
+## Week 2：PostgreSQL 與 SQLAlchemy 實作
+
+### 1. 本週學習內容
+- 建立 PostgreSQL 與 pgAdmin 開發環境
+- 建立 `notes` 資料表
+- 使用 SQL `INSERT` 與 `SELECT`
+- 建立 Python 與 PostgreSQL 連線
+- 建立 SQLAlchemy ORM Model
+- 使用 Alembic 管理資料表變更
+- 建立單筆 Note 查詢 API
+- 使用 Swagger 驗證 API 與資料庫串接
+
+### 2. AI 協助與問題處理
+
+#### 問題 1：`is_archived` 在直接 INSERT 時需要另外指定值
+- 問題：`Note` Model 中已設定 `default=False`，但直接使用 PostgreSQL INSERT 時，`is_archived` 仍不能省略。
+- AI 協助：一起檢查 ORM 設定與實際 PostgreSQL table schema，確認 Python 端的 `default=False` 不等於資料庫端具有預設值。
+- 驗證：使用 PostgreSQL 查看 `notes` table 結構，並在 INSERT 時明確加入 `is_archived = false` 後成功新增資料。
+- 我的理解：ORM 中設定的預設值不一定等於 Database Server 本身的預設值，遇到這類問題要查看實際 table schema，而不是只看 Python Model。
+
+#### 問題 2：確認 W2 測試資料是否真的寫入資料庫
+- 問題：需要確認課程要求的測試資料是否真的已經存在 PostgreSQL 中。
+- AI 協助：使用 SQL 查詢方式逐步確認資料內容。
+- 驗證：成功建立三筆測試資料，並使用：
+
+    SELECT * FROM notes;
+
+  查詢到三筆資料。
+- 我的理解：程式沒有報錯不代表資料一定已經寫入，還是要直接查 Database 確認。
+
+#### 問題 3：確認 FastAPI 是否真的讀到 PostgreSQL 資料
+- 問題：SQL 查詢成功後，還需要確認 FastAPI API 是否真的能從 PostgreSQL 取得相同資料。
+- AI 協助：一起檢查單筆查詢 API，並使用 Swagger 測試。
+- 驗證：執行：
+
+    GET /api/note/2
+
+  成功取得 `200 OK` 與資料庫中的 Note 資料。
+- 我的理解：SQL 查詢成功與 API 查詢成功是兩個不同階段，要分開驗證。
+
+#### 問題 4：Alembic Migration 與目前資料表狀態需要一起確認
+- 問題：專案中已有建立 `notes`、`users` 與新增 `is_archived` 的 Migration，但需要確認哪些是目前實際資料庫已套用的內容。
+- AI 協助：協助閱讀 Migration 檔與資料表結果，不直接把「有 Migration 檔」視為「資料庫一定已完成更新」。
+- 驗證：實際查看 PostgreSQL table structure 與目前 Alembic 紀錄。
+- 我的理解：Migration 檔存在、Migration 已執行、Database Schema 已更新，是三件要分開確認的事情。
+
+---
+
+## Week 3：FastAPI 同時服務 Web App 與 API
+
+### 1. 本週學習內容
+- 建立 `run.bat`
+- 使用專案虛擬環境啟動 FastAPI
+- 使用 `0.0.0.0:7777`
+- 將 API 整理到 `/api/`
+- 將 `WEB/site` 設為 Web Public Directory
+- 使用 `StaticFiles` 提供 Web App
+- 驗證 Web App 與 API 可同時運作
+
+### 2. AI 協助與問題處理
+
+#### 問題 1：`run.bat` 執行時遇到 Python／Uvicorn 路徑問題
+- 問題：原本啟動方式可能使用到錯誤的 Python 或失效的 Uvicorn Launcher。
+- AI 協助：一起確認目前 venv 中的 Python 與 Uvicorn 狀態，最後改成直接使用專案 venv 的 Python 執行 Uvicorn。
+- 修正：
+
+    "%~dp0venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 7777 --reload
+
+- 驗證：使用 `run.bat` 後 FastAPI 可正常啟動。
+- 我的理解：直接指定目前專案 venv 的 Python，可以避免誤用其他 Python 環境或失效的 Uvicorn 執行檔。
+
+#### 問題 2：StaticFiles 設定後首頁仍顯示原本 Hello World
+- 問題：已加入 StaticFiles，但開啟 `/` 時仍看到原本的 Hello World 頁面。
+- AI 協助：一起檢查 `main.py`，發現原本仍有 `@app.get("/")` Route。
+- 修正：移除原本首頁 Route，改由 StaticFiles 掛載：
+
+    app.mount(
+        "/",
+        StaticFiles(directory=PUBLIC_DIRECTORY, html=True),
+        name="web"
+    )
+
+- 驗證：重新開啟 `/` 後成功顯示 `WEB/site/index.html`。
+- 我的理解：如果相同路徑已經有 FastAPI Route，需要先確認 Route 與 StaticFiles 是否互相衝突。
+
+#### 問題 3：FastAPI 需要正確找到 `WEB/site`
+- 問題：DB 與 WEB 分開後，`main.py` 需要正確找到另一個資料夾中的前端檔案。
+- AI 協助：一起確認目前專案目錄階層，改用 `Path(__file__).resolve()` 從目前程式位置計算 `WEB/site` 路徑。
+- 修正：
+
+    PUBLIC_DIRECTORY = (
+        Path(__file__).resolve().parents[3]
+        / "WEB"
+        / "site"
+    )
+
+- 驗證：
+  - `/` 可正常顯示 Web App。
+  - `/api/health` 可正常回傳 API。
+  - Local IP 與公開 HTTPS Demo 皆可正常存取。
+- 我的理解：使用專案目錄結構計算路徑，比直接寫死完整 Windows Path 更適合專案移動，也確認目前 FastAPI 已能同時提供 Web App 與 API。
+
+---
+
+## AI 使用反思
+
+目前 AI 主要用在：
+
+- 協助分析實際 Error Message
+- 一起檢查程式與資料夾結構
+- 將問題拆成可以逐步測試的小步驟
+- 協助比較老師教材要求與目前專案實際情況
+- 協助整理實作紀錄
+
+目前的使用方式是：
+
+    遇到問題
+    ↓
+    與 AI 討論可能原因
+    ↓
+    一次修改一個部分
+    ↓
+    實際執行
+    ↓
+    確認結果
+    ↓
+    再決定是否保留
+
+AI 提供的建議不直接視為正確答案，仍需透過實際程式、Database、Swagger、Browser 或 Terminal 驗證。
+
+另外不將 `.env`、密碼、Token、Secret Key 或其他敏感資料提供給 AI。

@@ -662,3 +662,337 @@ W01～W03 文件整理完成後，再統一進行：
     git commit
     ↓
     git push
+
+---
+
+---
+
+## W04：CRUD API 完整實作 {#CRUD}
+
+### 學習目標
+
+本週將 API 層與資料庫層串接，完成 RESTful CRUD，建立從 HTTP Request 到 PostgreSQL 的完整資料操作流程。
+
+本週先使用 `Note` 完成 CRUD，再以 `User` 練習相同架構，確認能將 CRUD 架構套用至不同的 ORM Model。
+
+### RESTful API
+
+RESTful API 是一種以「資源（Resource）」為中心設計 HTTP API 的方式。
+
+以 Note 為例：
+
+```text
+/api/notes/
+```
+
+代表 Note 集合，而：
+
+```text
+/api/notes/{note_id}
+```
+
+代表指定的一筆 Note。
+
+透過不同 HTTP Method 表示不同操作：
+
+| HTTP Method | CRUD | 功能 |
+| --- | --- | --- |
+| POST | Create | 新增資料 |
+| GET | Read | 查詢資料 |
+| PUT | Update | 修改資料 |
+| DELETE | Delete | 刪除資料 |
+
+### Schema 與 ORM Model
+
+新增：
+
+```text
+app/schemas/note.py
+```
+
+使用 Pydantic Schema 區分 API 的輸入與輸出資料格式：
+
+```python
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+
+
+class NoteCreate(BaseModel):
+    title: str
+    content: Optional[str] = None
+
+
+class NoteResponse(BaseModel):
+    id: int
+    title: str
+    content: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+```
+
+其中：
+
+```text
+NoteCreate
+→ Client 傳給 API 的資料格式
+
+NoteResponse
+→ API 回傳給 Client 的資料格式
+
+Note
+→ SQLAlchemy ORM Model，負責 Python 與 PostgreSQL 之間的資料對應
+```
+
+### Note Router
+
+新增：
+
+```text
+app/api/notes.py
+```
+
+設定：
+
+```python
+router = APIRouter(
+    prefix="/notes",
+    tags=["notes"]
+)
+```
+
+並完成：
+
+```text
+POST   /api/notes/
+GET    /api/notes/
+GET    /api/notes/{note_id}
+PUT    /api/notes/{note_id}
+DELETE /api/notes/{note_id}
+```
+
+在 `main.py` 中註冊：
+
+```python
+from app.api import notes
+
+app.include_router(notes.router, prefix="/api")
+```
+
+因此：
+
+```text
+main.py       /api
+notes router  /notes
+
+→ /api/notes/
+```
+
+### Note CRUD
+
+#### Create
+
+```text
+POST /api/notes/
+```
+
+執行流程：
+
+```text
+Request
+↓
+NoteCreate
+↓
+SQLAlchemy Note
+↓
+db.add()
+↓
+db.commit()
+↓
+db.refresh()
+↓
+PostgreSQL
+↓
+NoteResponse
+```
+
+#### Read All
+
+```text
+GET /api/notes/
+```
+
+使用：
+
+```python
+db.query(Note).all()
+```
+
+取得所有 Note。
+
+#### Read One
+
+```text
+GET /api/notes/{note_id}
+```
+
+依照 `note_id` 查詢指定 Note。
+
+若資料不存在：
+
+```python
+raise HTTPException(
+    status_code=404,
+    detail="Note not found"
+)
+```
+
+#### Update
+
+```text
+PUT /api/notes/{note_id}
+```
+
+先找出原本資料，再更新欄位：
+
+```python
+for key, value in note_data.model_dump().items():
+    setattr(note, key, value)
+```
+
+最後：
+
+```python
+db.commit()
+db.refresh(note)
+```
+
+#### Delete
+
+```text
+DELETE /api/notes/{note_id}
+```
+
+使用：
+
+```python
+db.delete(note)
+db.commit()
+```
+
+刪除指定資料。
+
+### User CRUD 練習
+
+完成 Note CRUD 後，再將相同架構套用到 `User`。
+
+原有 User Model 欄位：
+
+```text
+id
+email
+hashed_password
+created_at
+```
+
+新增：
+
+```text
+app/schemas/user.py
+app/api/users.py
+```
+
+在 `main.py` 註冊：
+
+```python
+from app.api import notes, users
+
+app.include_router(notes.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+```
+
+完成：
+
+```text
+POST   /api/users/
+GET    /api/users/
+GET    /api/users/{user_id}
+PUT    /api/users/{user_id}
+DELETE /api/users/{user_id}
+```
+
+### 本週練習
+
+1. 建立 `NoteCreate` 與 `NoteResponse` Schema。
+2. 建立 Note Router。
+3. 完成 Note 的 Create、Read、Update、Delete。
+4. 將 Note Router 註冊至 `main.py`。
+5. 使用 Swagger 測試完整 CRUD。
+6. 找不到指定 Note 時回傳 `404 Not Found`。
+7. 將相同 CRUD 架構套用到 User Model。
+
+### 驗收標準
+
+- [x] `POST /api/notes/` 可新增 Note
+- [x] `GET /api/notes/` 可查詢全部 Note
+- [x] `GET /api/notes/{note_id}` 可查詢單筆 Note
+- [x] `PUT /api/notes/{note_id}` 可修改 Note
+- [x] `DELETE /api/notes/{note_id}` 可刪除 Note
+- [x] 查詢不存在的 Note 回傳 `404 Not Found`
+- [x] User CRUD 完整實作
+- [x] User 刪除後再次查詢回傳 `404 Not Found`
+- [x] Swagger UI 可正常測試所有 API
+
+### 心得
+
+本週第一次完整串接：
+
+```text
+HTTP Request
+↓
+FastAPI Router
+↓
+Pydantic Schema
+↓
+SQLAlchemy ORM
+↓
+PostgreSQL
+```
+
+理解 `Model`、`Schema` 與 `Router` 的不同角色：
+
+```text
+Model
+→ 定義資料庫資料與 Python Object 的對應
+
+Schema
+→ 定義 API 接收與回傳的資料格式
+
+Router
+→ 定義 API Path、HTTP Method 與 CRUD 邏輯
+```
+
+也實際理解：
+
+```text
+db.add()
+→ 將新物件加入 Session
+
+db.commit()
+→ 將交易真正寫入資料庫
+
+db.refresh()
+→ 從資料庫重新取得最新資料
+
+db.query()
+→ 查詢資料
+
+HTTPException(404)
+→ 處理指定資源不存在的情況
+```
+
+完成 Note CRUD 後，再將相同架構套用至 User CRUD，確認 CRUD 的結構可以套用到不同資料 Entity。
+
+目前 Note 與 User 主要仍是課程架構練習；後續正式專題會再將相同概念套用至製程異常分析平台所需要的 Dataset、Analysis Batch、Prediction Result 等資料。

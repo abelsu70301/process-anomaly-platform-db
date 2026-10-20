@@ -171,3 +171,255 @@
 AI 提供的建議不直接視為正確答案，仍需透過實際程式、Database、Swagger、Browser 或 Terminal 驗證。
 
 另外不將 `.env`、密碼、Token、Secret Key 或其他敏感資料提供給 AI。
+---
+
+## W04：CRUD API 完整實作 {#CRUD}
+
+### 1. `notes.py` 建立在錯誤目錄
+
+#### 問題
+
+建立 Note Router 時，不小心多建立了一層 `api` 資料夾，導致檔案位置變成：
+
+```text
+DB/api/api/app/api/notes.py
+```
+
+正確位置應為：
+
+```text
+DB/api/app/api/notes.py
+```
+
+#### AI 協助
+
+使用 PowerShell 將檔案移到正確位置：
+
+```powershell
+Move-Item .\api\app\api\notes.py .\app\api\notes.py
+```
+
+再刪除多餘的資料夾：
+
+```powershell
+Remove-Item -Recurse .\api
+```
+
+#### 結果
+
+`notes.py` 回到正確位置：
+
+```text
+app/api/notes.py
+```
+
+FastAPI 可以正常匯入 `notes` Router。
+
+---
+
+### 2. FastAPI 啟動出現 `NameError`
+
+#### 問題
+
+整理 `main.py` 的 import 時，不小心刪除了：
+
+```python
+from fastapi import FastAPI
+```
+
+重新執行：
+
+```powershell
+.\run.bat
+```
+
+後出現：
+
+```text
+NameError: name 'FastAPI' is not defined
+```
+
+錯誤位置：
+
+```python
+app = FastAPI(...)
+```
+
+#### AI 協助
+
+重新檢查 `main.py` 的 import，補回：
+
+```python
+from fastapi import FastAPI
+```
+
+#### 結果
+
+重新啟動 FastAPI 後可以正常執行。
+
+---
+
+### 3. 原有 CRUD 與新的 Router 架構重複
+
+#### 問題
+
+原本部分 Note CRUD 直接寫在：
+
+```text
+app/main.py
+```
+
+W04 開始改成獨立 Router：
+
+```text
+app/api/notes.py
+```
+
+因此舊程式與新 Router 架構會重複。
+
+#### AI 協助
+
+將 Note CRUD 集中到：
+
+```text
+app/api/notes.py
+```
+
+將 API 輸入與輸出格式移到：
+
+```text
+app/schemas/note.py
+```
+
+`main.py` 只負責註冊 Router：
+
+```python
+from app.api import notes
+
+app.include_router(notes.router, prefix="/api")
+```
+
+#### 結果
+
+程式結構改為：
+
+```text
+app/
+├─ api/
+│  └─ notes.py
+├─ models/
+│  └─ note.py
+├─ schemas/
+│  └─ note.py
+└─ main.py
+```
+
+Model、Schema 與 Router 分開管理。
+
+---
+
+### 4. `/api` 與 Router Prefix 的組合
+
+#### 問題
+
+W03 已將 API 統一放在：
+
+```text
+/api/
+```
+
+W04 的 Note Router 則設定：
+
+```python
+prefix="/notes"
+```
+
+不確定兩者應如何組合。
+
+#### AI 協助
+
+在 `notes.py`：
+
+```python
+router = APIRouter(
+    prefix="/notes",
+    tags=["notes"]
+)
+```
+
+在 `main.py`：
+
+```python
+app.include_router(notes.router, prefix="/api")
+```
+
+因此實際 API Path 為：
+
+```text
+/api/notes/
+```
+
+#### 結果
+
+Note Router 可以在原本 W03 的 `/api` 架構下正常使用。
+
+---
+
+### 5. User CRUD 延伸實作
+
+#### 問題
+
+完成 Note CRUD 後，需要將相同架構套用到既有的 `User` Model。
+
+先確認：
+
+```text
+app/models/user.py
+```
+
+目前 User 欄位為：
+
+```text
+id
+email
+hashed_password
+created_at
+```
+
+#### AI 協助
+
+依現有 User Model 建立：
+
+```text
+app/schemas/user.py
+app/api/users.py
+```
+
+並在 `main.py` 中加入：
+
+```python
+from app.api import notes, users
+```
+
+以及：
+
+```python
+app.include_router(notes.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+```
+
+#### 結果
+
+Note 與 User 都使用相同的 Router / Schema / Model 分層方式。
+
+---
+
+### 本週 AI 協助摘要
+
+本週主要使用 AI 協助：
+
+1. 修正 `notes.py` 建立在錯誤目錄的問題。
+2. 排查 `FastAPI` import 遺失造成的 `NameError`。
+3. 將原本寫在 `main.py` 的 CRUD 拆分成 Router、Schema 與 Model。
+4. 確認 `/api` 與 Router prefix 的組合方式。
+5. 依既有 `User` Model 延伸建立 User CRUD 架構。

@@ -423,3 +423,124 @@ Note 與 User 都使用相同的 Router / Schema / Model 分層方式。
 3. 將原本寫在 `main.py` 的 CRUD 拆分成 Router、Schema 與 Model。
 4. 確認 `/api` 與 Router prefix 的組合方式。
 5. 依既有 `User` Model 延伸建立 User CRUD 架構。
+
+---
+
+---
+
+## W05：關聯式設計與 View
+
+### 1. `academic.sql` 語法與編碼問題
+
+#### 問題
+
+建立 `academic.sql` 時，曾遇到數個 SQL 語法與編碼問題，包括：
+
+- PRIMARY KEY 後缺少逗號
+- 最後一個 UNIQUE constraint 後多逗號
+- Function 參數列最後多逗號
+- `RETURING` 拼字錯誤
+- PowerShell `Get-Content` 顯示中文時出現亂碼
+
+另外，加入：
+
+\encoding UTF8
+
+後，因為同一行後面接了註解，`psql` 執行時出現額外參數警告。
+
+#### AI 協助
+
+逐段檢查 SQL 語法，並將：
+
+\encoding UTF8
+
+改成獨立一行，不與註解寫在同一行。
+
+#### 結果
+
+`academic.sql` 可以正常執行，資料庫中的中文內容也能正常顯示。
+
+---
+
+### 2. PostgreSQL `psql.exe` 路徑版本不符
+
+#### 問題
+
+原本執行 PostgreSQL 指令時，使用了錯誤版本的 `psql.exe` 路徑，因此 PowerShell 找不到執行檔。
+
+#### AI 協助
+
+重新確認本機 PostgreSQL 的實際版本與安裝位置。
+
+最後確認目前使用：
+
+C:\Program Files\PostgreSQL\16\bin\psql.exe
+
+#### 結果
+
+改用 PostgreSQL 16 的 `psql.exe` 後，可以正常執行 `academic.sql`。
+
+---
+
+### 3. `vd_subclass` API 出現 `500 Internal Server Error`
+
+#### 問題
+
+建立：
+
+GET /api/subclass/pcid/{id}
+
+後，Swagger 回傳：
+
+500 Internal Server Error
+
+先補上 View 的 `SELECT` 權限後，仍然出現 500。
+
+#### AI 協助
+
+查看 Uvicorn traceback，發現程式中寫成：
+
+rows = result.mapping().all()
+
+錯誤訊息指出：
+
+CursorResult object has no attribute 'mapping'
+
+正確寫法應為：
+
+rows = result.mappings().all()
+
+#### 結果
+
+修改成 `mappings()` 後，Swagger 可以正常回傳 `vd_subclass` 資料。
+
+---
+
+### 4. View 權限不足
+
+#### 問題
+
+FastAPI 使用的 `dev_user` 原本沒有新建立 View 的讀取權限，因此 API 無法正常查詢 View。
+
+#### AI 協助
+
+補上：
+
+GRANT SELECT ON vd_subclass TO dev_user;
+GRANT SELECT ON vd_objectlist TO dev_user;
+GRANT SELECT ON vd_object TO dev_user;
+
+#### 結果
+
+FastAPI 可以正常讀取三個 View。
+
+---
+
+### 本週 AI 協助摘要
+
+本週主要使用 AI 協助：
+
+1. 修正 `academic.sql` 的 SQL 語法與 UTF-8 編碼問題。
+2. 確認 PostgreSQL 16 的正確 `psql.exe` 路徑。
+3. 透過 Uvicorn traceback 修正 `mapping()` 與 `mappings()` 錯誤。
+4. 補上 `dev_user` 對 View 的 `SELECT` 權限。

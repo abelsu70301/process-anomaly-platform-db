@@ -24,6 +24,12 @@ SQLAlchemy 與 Alembic，逐步建立製程異常分析平台的資料保存與 
 - 已完成 User RESTful CRUD API。
 - 已完成不存在資源時的 `404 Not Found` 錯誤處理。
 - 已使用 Swagger UI 完成 CRUD 功能驗證。
+- 已建立 Class、Inheritance、Object、CO 關聯式資料結構。
+- 已建立 `insertClass()` PostgreSQL Function。
+- 已建立 `vd_subclass`、`vd_objectlist`、`vd_object` View。
+- 已建立 View 對應的 FastAPI API。
+- 已使用 `GRANT SELECT` 設定 API 使用者的 View 最小讀取權限。
+- 已使用 Swagger UI 驗證 View API。
 - 完整平台功能持續開發中；各週進度與驗證紀錄見 `psql.md`。
 
 ## 目前 API
@@ -56,33 +62,61 @@ PUT    /api/users/{user_id}
 DELETE /api/users/{user_id}
 ```
 
+### Subclass / Object Views
+
+```text
+GET /api/subclass/pcid/{id}
+GET /api/subclass/objectlist/cid/{id}
+GET /api/subclass/object/{id}
+```
+
+其中：
+
+```text
+/api/subclass/pcid/{id}
+→ 依 parent class id 查詢 child class
+
+/api/subclass/objectlist/cid/{id}
+→ 依 class id 查詢該分類底下的 Object
+
+/api/subclass/object/{id}
+→ 依 object id 查詢單一 Object 詳細資料
+```
+
 ## 目前程式結構
 
 ```text
-api/
-├─ app/
-│  ├─ api/
-│  │  ├─ notes.py
-│  │  └─ users.py
-│  ├─ core/
-│  │  └─ database.py
-│  ├─ models/
-│  │  ├─ note.py
-│  │  └─ user.py
-│  ├─ schemas/
-│  │  ├─ note.py
-│  │  └─ user.py
-│  └─ main.py
-├─ alembic/
-├─ requirements.txt
-└─ run.bat
+DB/
+├─ api/
+│  ├─ app/
+│  │  ├─ api/
+│  │  │  ├─ notes.py
+│  │  │  ├─ users.py
+│  │  │  └─ subclass.py
+│  │  ├─ core/
+│  │  │  └─ database.py
+│  │  ├─ models/
+│  │  │  ├─ note.py
+│  │  │  └─ user.py
+│  │  ├─ schemas/
+│  │  │  ├─ note.py
+│  │  │  └─ user.py
+│  │  └─ main.py
+│  ├─ alembic/
+│  ├─ requirements.txt
+│  └─ run.bat
+├─ psql/
+│  └─ academic.sql
+├─ psql.md
+├─ ai.md
+└─ README.md
 ```
 
 目前 API 架構分為：
 
 ```text
 Router
-→ 負責 API Path 與 CRUD 操作
+→ 負責 API Path 與 CRUD／查詢操作
 
 Schema
 → 負責 API 輸入與輸出資料格式
@@ -92,6 +126,29 @@ Model
 
 Database
 → 負責 PostgreSQL 連線與 Session
+
+PostgreSQL View
+→ 將常用的多資料表查詢整理成可重複使用的資料介面
+```
+
+W05 新增的 View API 資料流程：
+
+```text
+Browser / Swagger
+↓
+FastAPI Router
+↓
+get_db()
+↓
+SQLAlchemy Session
+↓
+db.execute()
+↓
+PostgreSQL View
+↓
+result.mappings()
+↓
+JSON Response
 ```
 
 ## 檔案說明
@@ -104,6 +161,7 @@ Database
 | `api/app/core/` | 資料庫連線設定 |
 | `api/alembic/` | 資料庫結構遷移 |
 | `api/requirements.txt` | Python 套件清單 |
+| `psql/academic.sql` | Class、Inheritance、Object、CO、Function 與 View |
 | `psql.md` | 課程規劃與實作進度 |
 | `ai.md` | AI 使用與問題排查紀錄 |
 
@@ -152,6 +210,41 @@ http://127.0.0.1:7777/api/docs
 ## 與學期專題的關係
 
 目前 Note 與 User CRUD 主要作為資料庫課程的 API 與資料庫操作練習。
+
+W05 的 Class、Inheritance、Object、CO 與 View 則用來練習：
+
+```text
+多資料表關聯
+↓
+Function
+↓
+View
+↓
+FastAPI API
+```
+
+課堂原始範例的資料情境已改為製程異常分析平台功能分類，例如：
+
+```text
+首頁
+└─ 製程異常分析平台
+   ├─ 資料管理
+   ├─ 分析設定
+   ├─ 分析結果
+   ├─ 歷史紀錄
+   └─ 系統設定
+```
+
+目前「資料管理」下的測試 Object 包含：
+
+```text
+上傳資料集
+資料品質檢查
+版本管理
+```
+
+這些資料目前主要用於練習 Class、Object、View 與 API 的關係，
+不代表正式專題的最終資料庫 Entity 設計。
 
 正式學期專題仍為：
 

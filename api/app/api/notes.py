@@ -4,11 +4,13 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.note import Note
 from app.schemas.note import NoteCreate, NoteResponse
+from app.core.auth import get_current_member
 
 
 router = APIRouter(
     prefix="/notes",
-    tags=["notes"]
+    tags=["notes"],
+    dependencies=[Depends(get_current_member)]
 )
 #表示這個檔案裡的 API 都以 /notes 開頭
 

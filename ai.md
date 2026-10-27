@@ -1,185 +1,342 @@
-# AI 使用與學習紀錄
+# AI 使用與問題排查紀錄
 
-## Week 1：FastAPI 開發環境與 Git 基礎
+本文件記錄資料庫系統課程與專案開發過程中，實際使用 AI 協助修改程式、分析錯誤與排查問題的紀錄。
 
-### 1. 本週學習內容
-- 建立 Python 虛擬環境（venv）
-- 安裝 FastAPI 與 Uvicorn
-- 建立 FastAPI 基礎 API
-- 使用 Pydantic 進行資料驗證
-- 測試 GET 與 POST API
-- 建立 requirements.txt 與 .gitignore
-- 安裝 Git 並建立 Git repository
+AI 提供的建議不直接視為正確答案，所有修改仍會透過 Terminal、PostgreSQL、Swagger、Browser 或實際程式執行結果進行驗證。
 
-### 2. AI 協助與問題處理
-
-#### 問題 1：PowerShell 無法啟動虛擬環境
-- 問題：執行 `.\venv\Scripts\Activate.ps1` 時，因 PowerShell 的 Execution Policy 而無法執行。
-- AI 建議：使用 `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`，只針對目前的 PowerShell 工作階段暫時允許執行腳本。
-- 驗證：重新執行 `Activate.ps1` 後，Terminal 出現 `(venv)`，確認虛擬環境成功啟動。
-- 我的理解：`-Scope Process` 只影響目前的 PowerShell 工作階段，關閉 Terminal 後設定即失效，不是永久修改整台電腦的執行原則。
-
-#### 問題 2：移動專案後虛擬環境路徑異常
-- 問題：專案資料夾路徑變更後，原本的 venv 執行 pip 時出現路徑錯誤。
-- AI 建議：刪除原本的 venv，在目前專案位置重新建立虛擬環境並重新安裝套件。
-- 驗證：使用 `python -m pip show fastapi` 確認 FastAPI 的安裝位置位於目前專案的 venv 中。
-- 我的理解：venv 內可能記錄建立時的路徑，因此專案移動或更名後，直接沿用舊的 venv 可能發生問題；requirements.txt 則可以用來協助重新建立套件環境。
-
-#### 問題 3：Uvicorn 啟動指令格式錯誤
-- 問題：第一次啟動 FastAPI 時，將指令寫成 `uvicorn app.main.app --reload`，出現 Import string 格式錯誤。
-- AI 協助：確認 Uvicorn 的啟動格式應為 `<module>:<attribute>`。
-- 修正：改為 `uvicorn app.main:app --reload`。
-- 驗證：瀏覽器開啟 `/health` 後成功取得 `{"status":"ok"}`，並可正常開啟 `/docs`。
-- 我的理解：`app.main` 代表 Python module `app/main.py`，冒號後的 `app` 則代表 `main.py` 中由 `FastAPI()` 建立的應用程式物件。
-
-#### 問題 4：測試 API 與資料驗證
-- 實作：建立 `GET /health`、`GET /version` 與 `POST /items`。
-- AI 協助：理解 GET、POST、Request、Response、HTTP Status Code，以及 Pydantic `BaseModel` 的用途。
-- 驗證：使用 FastAPI `/docs` 實際執行 API；正常資料可成功取得回應，錯誤輸入則可觀察到 422 回應。
-- 我的理解：FastAPI 可透過 Pydantic 定義輸入資料格式，在資料進入函式前先進行驗證；`/docs` 則可用來實際送出 Request 並觀察 Response。
+`.env`、密碼、Token、Secret Key 與其他敏感資料不提供給 AI，也不納入 Git。
 
 ---
 
-## Week 2：PostgreSQL 與 SQLAlchemy 實作
+## W01：FastAPI 開發環境與 Git
 
-### 1. 本週學習內容
-- 建立 PostgreSQL 與 pgAdmin 開發環境
-- 建立 `notes` 資料表
-- 使用 SQL `INSERT` 與 `SELECT`
-- 建立 Python 與 PostgreSQL 連線
-- 建立 SQLAlchemy ORM Model
-- 使用 Alembic 管理資料表變更
-- 建立單筆 Note 查詢 API
-- 使用 Swagger 驗證 API 與資料庫串接
+### 1. PowerShell 無法啟動虛擬環境
 
-### 2. AI 協助與問題處理
+#### 問題
 
-#### 問題 1：`is_archived` 在直接 INSERT 時需要另外指定值
-- 問題：`Note` Model 中已設定 `default=False`，但直接使用 PostgreSQL INSERT 時，`is_archived` 仍不能省略。
-- AI 協助：一起檢查 ORM 設定與實際 PostgreSQL table schema，確認 Python 端的 `default=False` 不等於資料庫端具有預設值。
-- 驗證：使用 PostgreSQL 查看 `notes` table 結構，並在 INSERT 時明確加入 `is_archived = false` 後成功新增資料。
-- 我的理解：ORM 中設定的預設值不一定等於 Database Server 本身的預設值，遇到這類問題要查看實際 table schema，而不是只看 Python Model。
+執行：
 
-#### 問題 2：確認 W2 測試資料是否真的寫入資料庫
-- 問題：需要確認課程要求的測試資料是否真的已經存在 PostgreSQL 中。
-- AI 協助：使用 SQL 查詢方式逐步確認資料內容。
-- 驗證：成功建立三筆測試資料，並使用：
+```powershell
+.\venv\Scripts\Activate.ps1
+```
 
-    SELECT * FROM notes;
+時，因 PowerShell Execution Policy 無法執行腳本。
 
-  查詢到三筆資料。
-- 我的理解：程式沒有報錯不代表資料一定已經寫入，還是要直接查 Database 確認。
+#### AI 協助
 
-#### 問題 3：確認 FastAPI 是否真的讀到 PostgreSQL 資料
-- 問題：SQL 查詢成功後，還需要確認 FastAPI API 是否真的能從 PostgreSQL 取得相同資料。
-- AI 協助：一起檢查單筆查詢 API，並使用 Swagger 測試。
-- 驗證：執行：
+使用：
 
-    GET /api/note/2
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
 
-  成功取得 `200 OK` 與資料庫中的 Note 資料。
-- 我的理解：SQL 查詢成功與 API 查詢成功是兩個不同階段，要分開驗證。
+只針對目前 PowerShell 工作階段暫時允許執行腳本。
 
-#### 問題 4：Alembic Migration 與目前資料表狀態需要一起確認
-- 問題：專案中已有建立 `notes`、`users` 與新增 `is_archived` 的 Migration，但需要確認哪些是目前實際資料庫已套用的內容。
-- AI 協助：協助閱讀 Migration 檔與資料表結果，不直接把「有 Migration 檔」視為「資料庫一定已完成更新」。
-- 驗證：實際查看 PostgreSQL table structure 與目前 Alembic 紀錄。
-- 我的理解：Migration 檔存在、Migration 已執行、Database Schema 已更新，是三件要分開確認的事情。
+#### 結果
+
+重新執行 `Activate.ps1` 後 Terminal 出現：
+
+```text
+(venv)
+```
+
+確認虛擬環境成功啟動。
 
 ---
 
-## Week 3：FastAPI 同時服務 Web App 與 API
+### 2. 移動專案後 venv 路徑異常
 
-### 1. 本週學習內容
-- 建立 `run.bat`
-- 使用專案虛擬環境啟動 FastAPI
-- 使用 `0.0.0.0:7777`
-- 將 API 整理到 `/api/`
-- 將 `WEB/site` 設為 Web Public Directory
-- 使用 `StaticFiles` 提供 Web App
-- 驗證 Web App 與 API 可同時運作
+#### 問題
 
-### 2. AI 協助與問題處理
+專案資料夾移動後，原本 venv 執行 pip 時出現路徑錯誤。
 
-#### 問題 1：`run.bat` 執行時遇到 Python／Uvicorn 路徑問題
-- 問題：原本啟動方式可能使用到錯誤的 Python 或失效的 Uvicorn Launcher。
-- AI 協助：一起確認目前 venv 中的 Python 與 Uvicorn 狀態，最後改成直接使用專案 venv 的 Python 執行 Uvicorn。
-- 修正：
+#### AI 協助
 
-    "%~dp0venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 7777 --reload
+刪除舊 venv，在目前專案位置重新建立：
 
-- 驗證：使用 `run.bat` 後 FastAPI 可正常啟動。
-- 我的理解：直接指定目前專案 venv 的 Python，可以避免誤用其他 Python 環境或失效的 Uvicorn 執行檔。
+```powershell
+python -m venv venv
+```
 
-#### 問題 2：StaticFiles 設定後首頁仍顯示原本 Hello World
-- 問題：已加入 StaticFiles，但開啟 `/` 時仍看到原本的 Hello World 頁面。
-- AI 協助：一起檢查 `main.py`，發現原本仍有 `@app.get("/")` Route。
-- 修正：移除原本首頁 Route，改由 StaticFiles 掛載：
+再重新安裝套件。
 
-    app.mount(
-        "/",
-        StaticFiles(directory=PUBLIC_DIRECTORY, html=True),
-        name="web"
-    )
+#### 結果
 
-- 驗證：重新開啟 `/` 後成功顯示 `WEB/site/index.html`。
-- 我的理解：如果相同路徑已經有 FastAPI Route，需要先確認 Route 與 StaticFiles 是否互相衝突。
+使用：
 
-#### 問題 3：FastAPI 需要正確找到 `WEB/site`
-- 問題：DB 與 WEB 分開後，`main.py` 需要正確找到另一個資料夾中的前端檔案。
-- AI 協助：一起確認目前專案目錄階層，改用 `Path(__file__).resolve()` 從目前程式位置計算 `WEB/site` 路徑。
-- 修正：
+```powershell
+python -m pip show fastapi
+```
 
-    PUBLIC_DIRECTORY = (
-        Path(__file__).resolve().parents[3]
-        / "WEB"
-        / "site"
-    )
-
-- 驗證：
-  - `/` 可正常顯示 Web App。
-  - `/api/health` 可正常回傳 API。
-  - Local IP 與公開 HTTPS Demo 皆可正常存取。
-- 我的理解：使用專案目錄結構計算路徑，比直接寫死完整 Windows Path 更適合專案移動，也確認目前 FastAPI 已能同時提供 Web App 與 API。
+確認 FastAPI 安裝於目前專案的 venv。
 
 ---
 
-## AI 使用反思
+### 3. Uvicorn 啟動指令格式錯誤
 
-目前 AI 主要用在：
+#### 問題
 
-- 協助分析實際 Error Message
-- 一起檢查程式與資料夾結構
-- 將問題拆成可以逐步測試的小步驟
-- 協助比較老師教材要求與目前專案實際情況
-- 協助整理實作紀錄
+第一次啟動 FastAPI 時使用：
 
-目前的使用方式是：
+```text
+uvicorn app.main.app --reload
+```
 
-    遇到問題
-    ↓
-    與 AI 討論可能原因
-    ↓
-    一次修改一個部分
-    ↓
-    實際執行
-    ↓
-    確認結果
-    ↓
-    再決定是否保留
+出現 Import String 格式錯誤。
 
-AI 提供的建議不直接視為正確答案，仍需透過實際程式、Database、Swagger、Browser 或 Terminal 驗證。
+#### AI 協助
 
-另外不將 `.env`、密碼、Token、Secret Key 或其他敏感資料提供給 AI。
+確認 Uvicorn 啟動格式應為：
+
+```text
+<module>:<attribute>
+```
+
+修正為：
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+#### 結果
+
+FastAPI 可正常啟動，並成功開啟 API 文件。
+
 ---
 
-## W04：CRUD API 完整實作 {#CRUD}
+### 4. API 與資料驗證測試
+
+建立：
+
+```text
+GET /health
+GET /version
+POST /items
+```
+
+使用 Swagger UI 實際測試 Request / Response。
+
+正常資料可取得成功回應，錯誤輸入可觀察到 FastAPI / Pydantic 的資料驗證錯誤。
+
+---
+
+## W02：PostgreSQL 與 SQLAlchemy
+
+### 1. `is_archived` 在直接 INSERT 時沒有預設值
+
+#### 問題
+
+`Note` ORM Model 已設定：
+
+```python
+default=False
+```
+
+但直接使用 PostgreSQL INSERT 時仍需要指定 `is_archived`。
+
+#### AI 協助
+
+檢查 ORM Model 與 PostgreSQL 實際 Table Schema，確認：
+
+```text
+Python / SQLAlchemy default
+≠
+PostgreSQL server_default
+```
+
+#### 結果
+
+在 SQL INSERT 中明確加入：
+
+```text
+is_archived = false
+```
+
+後成功新增資料。
+
+---
+
+### 2. 確認測試資料是否真的寫入 PostgreSQL
+
+#### 問題
+
+程式沒有報錯，但仍需要確認資料是否真的存在 Database。
+
+#### AI 協助
+
+直接使用：
+
+```sql
+SELECT * FROM notes;
+```
+
+檢查實際資料。
+
+#### 結果
+
+成功查詢到三筆 W02 測試資料。
+
+---
+
+### 3. 確認 FastAPI 是否真的讀取 PostgreSQL
+
+#### 問題
+
+SQL 查詢成功後，還需要確認 API 是否真的透過 PostgreSQL 取得資料。
+
+#### AI 協助
+
+使用 Swagger 測試：
+
+```text
+GET /api/note/2
+```
+
+#### 結果
+
+成功回傳：
+
+```text
+200 OK
+```
+
+並取得 PostgreSQL 中的 Note 資料。
+
+---
+
+### 4. Alembic Migration 與 Database 狀態確認
+
+#### 問題
+
+專案中已有 Migration File，但需要確認 Database 是否真的套用相同結構。
+
+#### AI 協助
+
+分別確認：
+
+```text
+Migration File 是否存在
+Migration 是否執行
+Database Schema 是否更新
+```
+
+#### 結果
+
+透過 PostgreSQL Table Structure 與 Alembic 紀錄確認目前資料庫狀態。
+
+---
+
+## W03：FastAPI 同時提供 Web App 與 API
+
+### 1. `run.bat` Python / Uvicorn 路徑問題
+
+#### 問題
+
+原本啟動方式可能使用到錯誤 Python 或失效的 Uvicorn Launcher。
+
+#### AI 協助
+
+改為直接指定專案 venv Python：
+
+```bat
+"%~dp0venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 7777 --reload
+```
+
+#### 結果
+
+使用：
+
+```powershell
+.\run.bat
+```
+
+可以正常啟動 FastAPI。
+
+---
+
+### 2. StaticFiles 設定後首頁仍顯示 Hello World
+
+#### 問題
+
+加入 StaticFiles 後，開啟 `/` 仍顯示原本的 FastAPI Hello World。
+
+#### AI 協助
+
+檢查 `main.py` 後發現原本仍存在：
+
+```python
+@app.get("/")
+```
+
+首頁 Route。
+
+移除後改由：
+
+```python
+app.mount(
+    "/",
+    StaticFiles(directory=PUBLIC_DIRECTORY, html=True),
+    name="web"
+)
+```
+
+提供 Web App。
+
+#### 結果
+
+重新開啟 `/` 後成功顯示：
+
+```text
+WEB/site/index.html
+```
+
+---
+
+### 3. FastAPI 找不到 `WEB/site`
+
+#### 問題
+
+DB 與 WEB 專案分開後，FastAPI 必須正確找到另一個資料夾中的前端檔案。
+
+#### AI 協助
+
+改用：
+
+```python
+Path(__file__).resolve()
+```
+
+依目前程式所在位置計算路徑：
+
+```python
+PUBLIC_DIRECTORY = (
+    Path(__file__).resolve().parents[3]
+    / "WEB"
+    / "site"
+)
+```
+
+#### 結果
+
+以下功能皆可正常使用：
+
+```text
+/
+→ Web App
+
+/api/health
+→ Backend API
+```
+
+---
+
+## W04：CRUD API
 
 ### 1. `notes.py` 建立在錯誤目錄
 
 #### 問題
 
-建立 Note Router 時，不小心多建立了一層 `api` 資料夾，導致檔案位置變成：
+建立 Note Router 時不小心多建立一層 `api`，檔案位置變成：
 
 ```text
 DB/api/api/app/api/notes.py
@@ -193,27 +350,17 @@ DB/api/app/api/notes.py
 
 #### AI 協助
 
-使用 PowerShell 將檔案移到正確位置：
-
-```powershell
-Move-Item .\api\app\api\notes.py .\app\api\notes.py
-```
-
-再刪除多餘的資料夾：
-
-```powershell
-Remove-Item -Recurse .\api
-```
+使用 PowerShell 將檔案移回正確位置，並刪除多餘資料夾。
 
 #### 結果
 
-`notes.py` 回到正確位置：
+`notes.py` 回到：
 
 ```text
 app/api/notes.py
 ```
 
-FastAPI 可以正常匯入 `notes` Router。
+FastAPI 可以正常 Import Router。
 
 ---
 
@@ -221,33 +368,21 @@ FastAPI 可以正常匯入 `notes` Router。
 
 #### 問題
 
-整理 `main.py` 的 import 時，不小心刪除了：
+整理 `main.py` 時不小心移除：
 
 ```python
 from fastapi import FastAPI
 ```
 
-重新執行：
-
-```powershell
-.\run.bat
-```
-
-後出現：
+執行後出現：
 
 ```text
 NameError: name 'FastAPI' is not defined
 ```
 
-錯誤位置：
-
-```python
-app = FastAPI(...)
-```
-
 #### AI 協助
 
-重新檢查 `main.py` 的 import，補回：
+重新檢查 Import 並補回：
 
 ```python
 from fastapi import FastAPI
@@ -255,230 +390,166 @@ from fastapi import FastAPI
 
 #### 結果
 
-重新啟動 FastAPI 後可以正常執行。
+FastAPI 恢復正常啟動。
 
 ---
 
-### 3. 原有 CRUD 與新的 Router 架構重複
+### 3. 舊 CRUD 與新 Router 架構重複
 
 #### 問題
 
-原本部分 Note CRUD 直接寫在：
+部分 Note CRUD 原本直接寫在：
 
 ```text
 app/main.py
 ```
 
-W04 開始改成獨立 Router：
+W04 又建立：
 
 ```text
 app/api/notes.py
 ```
 
-因此舊程式與新 Router 架構會重複。
+造成程式功能重複。
 
 #### AI 協助
 
-將 Note CRUD 集中到：
+將功能重新整理為：
 
 ```text
-app/api/notes.py
-```
+Router
+→ app/api/notes.py
 
-將 API 輸入與輸出格式移到：
+Schema
+→ app/schemas/note.py
 
-```text
-app/schemas/note.py
-```
+Model
+→ app/models/note.py
 
-`main.py` 只負責註冊 Router：
-
-```python
-from app.api import notes
-
-app.include_router(notes.router, prefix="/api")
+main.py
+→ 註冊 Router
 ```
 
 #### 結果
-
-程式結構改為：
-
-```text
-app/
-├─ api/
-│  └─ notes.py
-├─ models/
-│  └─ note.py
-├─ schemas/
-│  └─ note.py
-└─ main.py
-```
 
 Model、Schema 與 Router 分開管理。
 
 ---
 
-### 4. `/api` 與 Router Prefix 的組合
+### 4. `/api` 與 Router Prefix 組合
 
 #### 問題
 
-W03 已將 API 統一放在：
-
-```text
-/api/
-```
-
-W04 的 Note Router 則設定：
-
-```python
-prefix="/notes"
-```
-
-不確定兩者應如何組合。
-
-#### AI 協助
-
-在 `notes.py`：
-
-```python
-router = APIRouter(
-    prefix="/notes",
-    tags=["notes"]
-)
-```
-
-在 `main.py`：
+`main.py` 使用：
 
 ```python
 app.include_router(notes.router, prefix="/api")
 ```
 
-因此實際 API Path 為：
+而 Note Router 使用：
 
-```text
-/api/notes/
+```python
+prefix="/notes"
 ```
+
+需要確認實際 URL。
 
 #### 結果
 
-Note Router 可以在原本 W03 的 `/api` 架構下正常使用。
+兩層 Prefix 組合後：
+
+```text
+/api
++
+/notes
+
+→ /api/notes/
+```
 
 ---
 
-### 5. User CRUD 延伸實作
+### 5. User CRUD 延伸
 
-#### 問題
-
-完成 Note CRUD 後，需要將相同架構套用到既有的 `User` Model。
-
-先確認：
-
-```text
-app/models/user.py
-```
-
-目前 User 欄位為：
-
-```text
-id
-email
-hashed_password
-created_at
-```
-
-#### AI 協助
-
-依現有 User Model 建立：
+完成 Note CRUD 後，使用相同結構建立：
 
 ```text
 app/schemas/user.py
 app/api/users.py
 ```
 
-並在 `main.py` 中加入：
-
-```python
-from app.api import notes, users
-```
-
-以及：
-
-```python
-app.include_router(notes.router, prefix="/api")
-app.include_router(users.router, prefix="/api")
-```
+並在 `main.py` 註冊 User Router。
 
 #### 結果
 
-Note 與 User 都使用相同的 Router / Schema / Model 分層方式。
+Note 與 User 都使用：
 
----
+```text
+Router
+Schema
+Model
+```
 
-### 本週 AI 協助摘要
-
-本週主要使用 AI 協助：
-
-1. 修正 `notes.py` 建立在錯誤目錄的問題。
-2. 排查 `FastAPI` import 遺失造成的 `NameError`。
-3. 將原本寫在 `main.py` 的 CRUD 拆分成 Router、Schema 與 Model。
-4. 確認 `/api` 與 Router prefix 的組合方式。
-5. 依既有 `User` Model 延伸建立 User CRUD 架構。
-
----
+分層方式完成 CRUD。
 
 ---
 
 ## W05：關聯式設計與 View
 
-### 1. `academic.sql` 語法與編碼問題
+### 1. `academic.sql` SQL 語法與編碼問題
 
 #### 問題
 
-建立 `academic.sql` 時，曾遇到數個 SQL 語法與編碼問題，包括：
+建立 `academic.sql` 時曾遇到：
 
 - PRIMARY KEY 後缺少逗號
-- 最後一個 UNIQUE constraint 後多逗號
+- Constraint 後多逗號
 - Function 參數列最後多逗號
 - `RETURING` 拼字錯誤
-- PowerShell `Get-Content` 顯示中文時出現亂碼
+- PowerShell 顯示中文亂碼
 
-另外，加入：
+加入：
 
+```sql
 \encoding UTF8
+```
 
-後，因為同一行後面接了註解，`psql` 執行時出現額外參數警告。
+時，也曾因同一行後方接註解造成 `psql` 警告。
 
 #### AI 協助
 
-逐段檢查 SQL 語法，並將：
+逐段檢查 SQL，並將：
 
+```sql
 \encoding UTF8
+```
 
-改成獨立一行，不與註解寫在同一行。
+改成獨立一行。
 
 #### 結果
 
-`academic.sql` 可以正常執行，資料庫中的中文內容也能正常顯示。
+`academic.sql` 可以正常執行。
 
 ---
 
-### 2. PostgreSQL `psql.exe` 路徑版本不符
+### 2. PostgreSQL `psql.exe` 路徑錯誤
 
 #### 問題
 
-原本執行 PostgreSQL 指令時，使用了錯誤版本的 `psql.exe` 路徑，因此 PowerShell 找不到執行檔。
+原本使用錯誤版本的 PostgreSQL 路徑，因此 PowerShell 找不到 `psql.exe`。
 
 #### AI 協助
 
-重新確認本機 PostgreSQL 的實際版本與安裝位置。
+確認本機 PostgreSQL 實際版本。
 
-最後確認目前使用：
+目前使用：
 
+```text
 C:\Program Files\PostgreSQL\16\bin\psql.exe
+```
 
 #### 結果
 
-改用 PostgreSQL 16 的 `psql.exe` 後，可以正常執行 `academic.sql`。
+可以正常使用 `psql` 執行 SQL File。
 
 ---
 
@@ -488,31 +559,35 @@ C:\Program Files\PostgreSQL\16\bin\psql.exe
 
 建立：
 
+```text
 GET /api/subclass/pcid/{id}
+```
 
-後，Swagger 回傳：
+後 Swagger 回傳：
 
+```text
 500 Internal Server Error
+```
 
-先補上 View 的 `SELECT` 權限後，仍然出現 500。
+查看 Uvicorn Traceback 發現：
+
+```python
+result.mapping().all()
+```
+
+寫錯。
 
 #### AI 協助
 
-查看 Uvicorn traceback，發現程式中寫成：
+修正為：
 
-rows = result.mapping().all()
-
-錯誤訊息指出：
-
-CursorResult object has no attribute 'mapping'
-
-正確寫法應為：
-
-rows = result.mappings().all()
+```python
+result.mappings().all()
+```
 
 #### 結果
 
-修改成 `mappings()` 後，Swagger 可以正常回傳 `vd_subclass` 資料。
+Swagger 可以正常取得 `vd_subclass` 資料。
 
 ---
 
@@ -520,27 +595,314 @@ rows = result.mappings().all()
 
 #### 問題
 
-FastAPI 使用的 `dev_user` 原本沒有新建立 View 的讀取權限，因此 API 無法正常查詢 View。
+FastAPI 使用 `dev_user` 連線，但新建立的 View 沒有 SELECT 權限。
 
 #### AI 協助
 
-補上：
+加入：
 
+```sql
 GRANT SELECT ON vd_subclass TO dev_user;
 GRANT SELECT ON vd_objectlist TO dev_user;
 GRANT SELECT ON vd_object TO dev_user;
+```
 
 #### 結果
 
-FastAPI 可以正常讀取三個 View。
+FastAPI 可正常讀取三個 View。
 
 ---
 
-### 本週 AI 協助摘要
+## W06：Authentication / JWT
 
-本週主要使用 AI 協助：
+### 1. `member` Table 權限不足
 
-1. 修正 `academic.sql` 的 SQL 語法與 UTF-8 編碼問題。
-2. 確認 PostgreSQL 16 的正確 `psql.exe` 路徑。
-3. 透過 Uvicorn traceback 修正 `mapping()` 與 `mappings()` 錯誤。
-4. 補上 `dev_user` 對 View 的 `SELECT` 權限。
+#### 問題
+
+建立 Member 功能後，第一次透過 FastAPI 使用的 `dev_user` 寫入 `member` Table 時，PostgreSQL 回傳權限不足：
+
+```text
+psycopg.errors.InsufficientPrivilege:
+permission denied for table member
+```
+
+原因是新建立的 `member` Table 尚未授權給 FastAPI 使用的 `dev_user`。
+
+另外，`mid` 使用 Identity 自動產生，因此新增資料時也需要對對應 Sequence 具有使用權限。
+
+#### AI 協助
+
+依照目前登入流程實際需要的操作，補上最小必要權限：
+
+```sql
+GRANT SELECT, INSERT, UPDATE
+ON TABLE member
+TO dev_user;
+
+GRANT USAGE, SELECT
+ON SEQUENCE member_mid_seq
+TO dev_user;
+```
+
+目前登入流程不需要刪除 Member，因此沒有額外提供 `DELETE` 權限。
+
+#### 結果
+
+重新執行 Member 測試後可以正常新增資料。
+
+再次使用相同 `google_sub` 測試時，也可以正常更新既有 Member，不再出現資料庫權限錯誤。
+
+### W06 AI 協助摘要
+
+本週實際需要 AI 協助排查的問題主要為：
+
+1. `dev_user` 沒有新建立 `member` Table 的操作權限。
+2. 補上 `member` Table 的 `SELECT / INSERT / UPDATE` 權限。
+3. 補上 Identity Sequence 的 `USAGE / SELECT` 權限。
+4. 依最小授權原則，不提供目前功能不需要的 `DELETE` 權限。
+
+---
+
+## W07：EER Model / AI Gen Data
+
+### 1. `process_vdata.sql` 誤加入 SECOM 測試資料
+
+#### 問題
+
+建立 W07 測試資料時，`process_vdata.sql` 中仍殘留先前 SECOM 情境的內容。
+
+執行後資料庫中意外新增：
+
+```text
+SECOM Dataset
+SECOM Failure Predictor
+```
+
+並產生額外的 Object：
+
+```text
+oid = 4
+oid = 5
+```
+
+但目前專案已決定使用 AI4I 2020 作為主要測試資料情境。
+
+#### AI 協助
+
+先查詢：
+
+```text
+object
+dataset
+model
+analysis_run
+```
+
+確認多出的 SECOM Dataset / Model 是否已被其他資料引用。
+
+確認未被 AnalysisRun 使用後，依 Foreign Key 關係先刪除子類資料，再刪除父類 Object：
+
+```sql
+DELETE FROM model
+WHERE oid = 5;
+
+DELETE FROM dataset
+WHERE oid = 4;
+
+DELETE FROM object
+WHERE oid IN (4, 5);
+```
+
+#### 結果
+
+資料重新整理為：
+
+```text
+Object 1
+→ Dataset
+→ AI4I 2020
+
+Object 2
+→ Model
+→ AI4I Failure Predictor
+
+Object 3
+→ AnalysisRun
+```
+
+後續 W07 測試資料統一使用 AI4I 2020。
+
+---
+
+### 2. `process_vdata.sql` 重複執行可能重複新增資料
+
+#### 問題
+
+原本測試資料腳本直接使用 `INSERT`。
+
+若重複執行：
+
+```text
+process_vdata.sql
+```
+
+可能再次新增相同的：
+
+```text
+Dataset
+Model
+AnalysisRun
+```
+
+造成測試資料重複。
+
+#### AI 協助
+
+將測試資料新增邏輯改為先確認資料是否已存在：
+
+```sql
+WHERE NOT EXISTS (...)
+```
+
+只有找不到相同資料時才建立新的 Object 與子類資料。
+
+#### 驗證
+
+再次執行：
+
+```powershell
+& 'C:\Program Files\PostgreSQL\16\bin\psql.exe' `
+  -U postgres `
+  -d fastapi_dev `
+  -f .\psql\process_vdata.sql
+```
+
+結果：
+
+```text
+SET
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+```
+
+#### 結果
+
+確認重複執行 SQL File 時，不會再次新增相同的 AI4I Dataset、Model 與 AnalysisRun。
+
+---
+
+### 3. `process_vdata.sql` 出現 BIG5 / UTF-8 編碼錯誤
+
+#### 問題
+
+執行：
+
+```text
+psql/process_vdata.sql
+```
+
+時出現：
+
+```text
+ERROR: character with byte sequence ...
+in encoding "BIG5"
+has no equivalent in encoding "UTF8"
+```
+
+代表目前 `psql` Client Encoding 與 SQL File / Database 使用的 UTF-8 不一致。
+
+#### AI 協助
+
+在 `process_vdata.sql` 第一行加入：
+
+```sql
+\encoding UTF8
+```
+
+並保持為獨立一行。
+
+#### 驗證
+
+重新執行後：
+
+```text
+SET
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+```
+
+#### 結果
+
+SQL File 可以正常執行，BIG5 / UTF-8 Encoding Error 已排除。
+
+---
+
+### 4. 多建立一個空的 `api/process_vdata.sql`
+
+#### 問題
+
+Commit 前執行：
+
+```powershell
+git status
+```
+
+發現同時存在：
+
+```text
+api/process_vdata.sql
+psql/process_vdata.sql
+```
+
+其中正確的 W07 SQL File 應位於：
+
+```text
+psql/process_vdata.sql
+```
+
+#### AI 協助
+
+檢查多出的檔案：
+
+```powershell
+Get-Item .\api\process_vdata.sql
+Get-Content .\api\process_vdata.sql
+```
+
+確認：
+
+```text
+Length = 0
+```
+
+是一個誤建立的空檔案。
+
+因此刪除：
+
+```powershell
+Remove-Item .\api\process_vdata.sql
+```
+
+#### 結果
+
+專案只保留正確的：
+
+```text
+psql/process_vdata.sql
+```
+
+避免將無用途的空檔案一起 Commit。
+
+---
+
+### W07 AI 協助摘要
+
+本週實際需要 AI 協助排查的問題主要為：
+
+1. `process_vdata.sql` 誤加入 SECOM 測試資料。
+2. 清除錯誤測試資料時確認 Foreign Key 與父子資料刪除順序。
+3. 修正測試資料重複執行可能重複 INSERT 的問題。
+4. 排除 `BIG5` 與 `UTF8` Client Encoding 錯誤。
+5. Commit 前發現並刪除誤建立的空白 `api/process_vdata.sql`。

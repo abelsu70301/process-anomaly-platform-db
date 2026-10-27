@@ -1,9 +1,8 @@
 # 製程異常分析與可疑因子平台｜資料庫系統實作紀錄
 
 > 課程：資料庫系統  
-> 更新日期：2026-10-19  
 > 專案：製程異常分析與可疑因子平台  
-> 本文件記錄資料庫系統課程之學習、實作、驗收與個人專案規劃。
+> 本文件記錄資料庫系統課程之學習、實作、驗收與專案應用。
 
 ---
 
@@ -11,16 +10,17 @@
 
 本專案建立可透過瀏覽器操作的製程異常分析平台，協助工程師查看製程／設備資料、異常預測結果與優先注意的可疑因子。
 
-資料庫系統課程主要負責後端與資料層，包括：
+資料庫系統課程主要負責：
 
 - PostgreSQL 資料庫
 - 資料表與關聯設計
 - FastAPI 後端 API
 - 資料驗證與 CRUD
-- 分析結果保存
 - View 與跨表查詢
 - 身分驗證
-- 測試、Logging 與部署
+- EER Model
+- 分析結果保存
+- 歷史資料查詢
 
 Web 程式設計課則主要負責：
 
@@ -30,740 +30,290 @@ Web 程式設計課則主要負責：
 - 表單與前端互動
 - 前端呼叫後端 API
 
-目前專案資料夾大致分為：
+目前開發與展示皆使用公開或模擬資料，不使用真實公司資料、個資或其他敏感資訊。
 
-    Process_Anomaly_Platform/
-    ├─ DB/
-    │  └─ api/
-    │     ├─ app/
-    │     ├─ alembic/
-    │     ├─ requirements.txt
-    │     └─ run.bat
-    └─ WEB/
-       └─ site/
-          ├─ index.html
-          ├─ app.js
-          └─ css/
-
-目前開發與展示皆以公開資料或模擬資料進行，不放入真實公司資料、個資或實驗室敏感資訊。
-
-平台輸出的「可疑因子」只提供工程師後續調查方向，不直接代表已確認根因。
+平台輸出的「可疑因子」只提供工程師後續調查方向，不直接代表已確認的異常根因。
 
 ---
 
-## W01：FastAPI 專案架構與基礎 API
+# W01：FastAPI 專案架構與基礎 API
 
-### 學習目標
+## 學習目標
 
 1. 建立 Python FastAPI 專案。
-2. 理解 FastAPI、瀏覽器與 API 的基本關係。
+2. 理解 FastAPI、Browser 與 API 的基本關係。
 3. 使用 Swagger UI 測試 API。
-4. 使用 Python 虛擬環境管理專案套件。
-5. 使用 Git 與 GitHub 管理程式版本。
+4. 使用 Python venv 管理專案環境。
+5. 使用 Git 與 GitHub 管理版本。
 
-### 為什麼這樣安排
+## 基本架構
 
-後續資料庫、CRUD、登入與分析功能都需要建立在可正常運作的後端服務上，因此第一週先建立 FastAPI 專案骨架。
+```text
+Browser
+↓
+FastAPI
+↓
+HTTP Response
+```
 
-先確認：
+建立的基本 API：
 
-    Browser
-    ↓
-    FastAPI
-    ↓
-    HTTP Response
+```text
+GET  /api/health
+GET  /api/version
+POST /api/items
+```
 
-能正常運作，再逐步加入 PostgreSQL 與其他功能。
+## 本週實作
 
-### 操作步驟
-
-1. 建立 `api` 專案目錄。
-2. 建立 Python `venv`。
-3. 安裝 FastAPI 與 Uvicorn。
-4. 建立 `app/main.py`。
-5. 建立基本 API。
-6. 使用 Swagger UI 測試 API。
-7. 建立 `requirements.txt`、`.gitignore` 與 GitHub repository。
-
-目前使用過的基本 API 包含：
-
-    /api/health
-    /api/version
-    /api/items
-
-其中 `/api/version` 可用來確認目前後端版本，`/api/health` 用來確認服務是否正常，`/api/items` 則用來練習 POST 與資料型別驗證。
-
-### 專案實作安排
-
-FastAPI 作為本專案後端入口。
-
-後續所有資料庫與分析功能都會逐步加入此服務，例如：
-
-    Dataset
-    DatasetVersion
-    AnalysisRun
-    AnalysisMetric
-    SuspectedFactor
-    AnalysisNote
-
-目前 W01 階段先以基本 API 練習為主，不急著加入正式專案資料表。
-
-### 本週練習
-
-- 建立 FastAPI 專案。
-- 建立 `/health`。
-- 建立 `/version`。
-- 使用 Pydantic 建立 Item Schema。
-- 建立 `POST /items`。
-- 開啟 Swagger UI。
-- 建立 Python 虛擬環境。
-- 建立 Git repository。
+- 建立 Python venv。
+- 安裝 FastAPI 與 Uvicorn。
+- 建立 `app/main.py`。
+- 建立基本 GET / POST API。
+- 使用 Pydantic 驗證資料。
+- 使用 Swagger UI 測試 API。
+- 建立 `requirements.txt`。
 - 建立 `.gitignore`。
-- 使用 Git 管理專案版本。
+- 建立 Git repository。
 
-### 驗收標準
+## 驗收
 
-- [x] 已建立 Python venv。
-- [x] 已建立 FastAPI 專案。
-- [x] FastAPI 可以正常啟動。
-- [x] Swagger UI 可以正常開啟。
-- [x] `/version` 回傳 `0.1.0`。
-- [x] `POST /items` 已建立。
-- [x] GitHub repository 已建立。
-- [ ] 補做一次錯誤資料型別測試，確認 FastAPI 的錯誤回應。
-- [ ] 確認 `.env.example` 已提交且沒有敏感資料。
-- [ ] 完成本次最新版本 commit 與 push。
+- [x] Python venv 可正常使用
+- [x] FastAPI 可正常啟動
+- [x] Swagger UI 可正常開啟
+- [x] `/api/health` 可正常回應
+- [x] `/api/version` 可正常回應
+- [x] POST API 可接收資料
+- [x] Git repository 已建立
 
-### 學習心得
+## 心得
 
-FastAPI 是後端 HTTP Server，可以依照不同 URL 與 HTTP Method 執行不同 Python function。
+FastAPI 可以依 URL 與 HTTP Method 找到對應的 Python Function：
 
-例如：
+```text
+Client Request
+↓
+FastAPI Route
+↓
+Python Function
+↓
+HTTP Response
+```
 
-    @app.get("/api/health")
-
-可以理解成：
-
-    Client 發送 GET /api/health
-    ↓
-    FastAPI 找到對應的 function
-    ↓
-    執行 Python 程式
-    ↓
-    回傳 HTTP Response
-
-Python 虛擬環境 `venv` 則是用來隔離不同專案的套件與版本，避免不同專案互相影響。
-
-Swagger UI 可以讓我們不用自己額外寫前端，也能直接測試目前建立的 API，因此很適合在後端開發階段做驗證。
+Swagger UI 則可以在尚未完成前端時，直接測試後端 API。
 
 ---
 
-## W02：PostgreSQL 安裝與連線
+# W02：PostgreSQL、SQLAlchemy 與 Alembic
 
-### 學習目標
+## 學習目標
 
 1. 建立 PostgreSQL 開發環境。
 2. 理解 Database、Table、Column、Row。
-3. 使用 SQL 新增與查詢資料。
-4. 讓 Python 成功連線 PostgreSQL。
-5. 使用 FastAPI API 查詢資料庫資料。
-6. 初步理解 SQLAlchemy ORM 與 Alembic Migration。
+3. 練習 SQL INSERT / SELECT。
+4. 使用 Python 連線 PostgreSQL。
+5. 使用 SQLAlchemy ORM。
+6. 使用 Alembic 管理 Database Schema。
 
-### 為什麼這樣安排
+## PostgreSQL 與 FastAPI
 
-在建立完整 CRUD 或正式專案資料表之前，先確認：
+資料流程：
 
-    PostgreSQL 本身正常
-    ↓
-    Python 可以連線 PostgreSQL
-    ↓
-    SQLAlchemy 可以操作資料
-    ↓
-    FastAPI 可以取得資料
+```text
+FastAPI
+↓
+get_db()
+↓
+SQLAlchemy Session
+↓
+ORM Model
+↓
+PostgreSQL
+```
 
-這樣之後發生問題時，才能較容易判斷是：
+建立：
 
-- PostgreSQL 本身的問題
-- Python connection 問題
-- SQLAlchemy ORM 問題
-- FastAPI API 問題
+```text
+notes
+users
+```
 
-### 操作步驟
+並使用 Alembic 新增：
 
-1. 安裝並啟動 PostgreSQL。
-2. 使用 pgAdmin 管理 PostgreSQL。
-3. 建立開發資料庫。
-4. 使用 `.env` 保存資料庫連線設定。
-5. 建立 `notes` table。
-6. 使用 SQL 練習 `INSERT` 與 `SELECT`。
-7. 建立 `database.py`。
-8. 建立 SQLAlchemy `engine`、`SessionLocal`、`Base` 與 `get_db()`。
-9. 建立 `Note` ORM Model。
-10. 使用 Alembic 建立與更新資料表。
-11. 建立單筆查詢 API。
-12. 使用 Swagger 測試 API 是否能讀取 PostgreSQL 資料。
+```text
+notes.is_archived
+```
 
-實際操作過的查詢：
+## SQLAlchemy 主要元件
 
-    SELECT * FROM notes;
+```text
+Engine
+→ SQLAlchemy 與 PostgreSQL 的連線入口
 
-目前已建立三筆測試資料：
+SessionLocal
+→ 建立 Session 的工廠
 
-    W2 Note 1
-    W2 Note 2
-    W2 Note 3
+Session
+→ 實際執行資料庫操作
 
-並成功查詢。
+Base
+→ ORM Model 的共同基底
+```
 
-### 專案實作安排
+ORM Model 可以理解為：
 
-目前 `notes` 只是課程練習用資料表，不直接作為正式製程資料。
+```text
+Python Class
+↕
+PostgreSQL Table
+```
 
-後續專案預計會逐步建立：
+## Alembic
 
-    users
-    datasets
-    dataset_versions
-    analysis_runs
-    analysis_metrics
-    suspected_factors
-    analysis_notes
+Alembic 用來記錄資料庫結構的變化：
 
-目前先利用 `notes` 練習：
+```text
+建立 Table
+↓
+修改 Column
+↓
+產生 Migration
+↓
+upgrade
+```
 
-- PostgreSQL
-- SQL
-- SQLAlchemy ORM
-- FastAPI API
-- Alembic Migration
-- CRUD
+因此資料庫結構的修改可以被追蹤與重現。
 
-等基本概念。
+## 本週實作
 
-### 本週練習
+- 建立 PostgreSQL。
+- 建立開發 Database。
+- 建立 `notes` Table。
+- 建立 SQLAlchemy Engine / Session。
+- 建立 Note ORM Model。
+- 使用 Alembic Migration。
+- 新增 `is_archived`。
+- 使用 API 查詢 PostgreSQL 資料。
 
-- 建立 `notes` table。
-- 手動新增 3 筆測試資料。
-- 使用 `SELECT * FROM notes` 查詢。
-- 建立 Python 與 PostgreSQL 連線。
-- 建立 `Note` ORM Model。
-- 使用 Alembic 建立 Migration。
-- 新增 `is_archived` 欄位。
-- 建立單筆資料查詢 API。
-- 使用 Swagger 查詢指定 note。
+## 驗收
 
-### 驗收標準
-
-- [x] PostgreSQL 已建置。
-- [x] pgAdmin 可正常使用。
-- [x] `notes` table 已建立。
-- [x] 已 INSERT 3 筆測試資料。
-- [x] `SELECT * FROM notes` 成功。
-- [x] Python 可連線 PostgreSQL。
-- [x] SQLAlchemy connection 已建立。
-- [x] `Note` ORM Model 已建立。
-- [x] Alembic Migration 已建立並執行。
-- [x] `notes` 已新增 `is_archived` 欄位。
-- [x] `/api/note/{note_id}` 已建立。
-- [x] Swagger 測試 `/api/note/2` 成功回傳 `200 OK`。
-- [x] 能說明 `.env` 不應提交敏感資訊。
-- [ ] 補測不存在的 `note_id` 是否正確回傳 `404`。
-- [ ] 完成本次最新版本 commit 與 push。
-
-### 學習心得
-
-目前資料流可以理解為：
-
-    Swagger / Browser
-    ↓
-    FastAPI
-    ↓
-    get_db()
-    ↓
-    SQLAlchemy Session
-    ↓
-    Note ORM
-    ↓
-    PostgreSQL
-
-`database.py` 中主要元件：
-
-    Engine
-    = SQLAlchemy 與 PostgreSQL 的主要連線入口
-
-    SessionLocal
-    = 建立 Session 的工廠
-
-    Session
-    = 實際進行資料庫操作的工作單位
-
-    Base
-    = ORM Model 的共同基底
-
-`Note` ORM Model 可以理解為：
-
-    Python class Note
-    ↕
-    PostgreSQL notes table
-
-也就是使用 Python class 對應資料庫 table。
-
-另外：
-
-    default
-    = SQLAlchemy／Python 端的預設值
-
-    server_default
-    = PostgreSQL Server 端的預設值
-
-兩者作用位置不同。
-
-Alembic 則是用來管理 Database Schema 的版本變更，例如：
-
-    建立 notes table
-    ↓
-    新增 is_archived 欄位
-    ↓
-    產生新的 migration
-
-這樣未來資料庫結構的修改就可以被記錄與追蹤，而不只是手動修改資料表。
+- [x] PostgreSQL 可正常使用
+- [x] Python 可連線 PostgreSQL
+- [x] Note ORM Model 已建立
+- [x] Migration 可正常執行
+- [x] `is_archived` 已新增
+- [x] FastAPI 可讀取 PostgreSQL 資料
 
 ---
 
-## W03：Run FastAPI as Web App and API
+# W03：FastAPI 同時提供 Web App 與 API
 
-### 學習目標
+## 學習目標
 
 1. 使用 FastAPI 作為 HTTP Server。
-2. 讓同一個 FastAPI 同時提供 Web App 與 API。
-3. 將 API 統一整理到 `/api/` 路徑。
-4. 使用 StaticFiles 提供 Web 前端檔案。
-5. 使用 local IP 驗證服務。
-6. 使用學校公開 HTTPS 網址驗證服務。
-7. 理解 Browser Cache 對前端測試的影響。
-
-### 為什麼這樣安排
-
-原本 FastAPI 主要用來回傳 API。
-
-W03 進一步將架構整理成：
-
-    Browser
-    ↓
-    FastAPI :7777
-    ├─ Web App
-    │  └─ /
-    │
-    └─ API
-       └─ /api/...
-
-讓同一個 FastAPI HTTP Server 可以同時：
-
-- 提供 HTML、CSS、JavaScript
-- 接收與回傳 API Request
-- 供前端直接呼叫後端 API
-
-### 操作步驟
-
-1. 將 DB 與 WEB 專案分開：
-
-    Process_Anomaly_Platform/
-    ├─ DB/
-    │  └─ api/
-    └─ WEB/
-       └─ site/
-
-2. 建立 `run.bat`。
-
-目前內容：
-
-    @echo off
-    :: 不顯示每條批次指令
-
-    :: 使用本專案 venv 的 Python 啟動 FastAPI
-    :: %~dp0 = run.bat 所在資料夾
-    "%~dp0venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 7777 --reload
-
-    :: --host 0.0.0.0：允許 localhost 與 local IP 存取
-    :: --port 7777：使用指定 port
-    :: --reload：程式修改後自動重新載入
-
-其中：
-
-    %~dp0
-
-代表：
-
-    run.bat 所在的資料夾
-
-因此：
-
-    "%~dp0venv\Scripts\python.exe"
-
-代表直接使用目前專案自己的 Python 虛擬環境，不依賴系統 Python。
-
-3. 將 API 路徑統一整理成：
-
-    /api/health
-    /api/version
-    /api/items
-    /api/note/{note_id}
-    /api/notes
-
-4. 在 `main.py` 中設定前端 public directory：
-
-    PUBLIC_DIRECTORY = (
-        Path(__file__).resolve().parents[3]
-        / "WEB"
-        / "site"
-    )
-
-此路徑會從：
-
-    DB/api/app/main.py
-
-往上找到專案根目錄，再進入：
-
-    WEB/site
-
-5. 使用 StaticFiles 掛載 Web App：
-
-    app.mount(
-        "/",
-        StaticFiles(directory=PUBLIC_DIRECTORY, html=True),
-        name="web"
-    )
-
-可以理解成：
-
-    Browser 開啟 /
-    ↓
-    FastAPI
-    ↓
-    StaticFiles
-    ↓
-    PUBLIC_DIRECTORY
-    ↓
-    WEB/site/index.html
-
-6. 測試：
-
-    /
-
-可以正常顯示：
-
-    WEB/site/index.html
-
-並測試：
-
-    /api/health
-
-可以正常回傳 API Response。
-
-7. 使用 local IP 測試。
-
-8. 使用學校公開 HTTPS Demo 網址測試。
-
-9. 修改前端內容後，分別使用：
-
-    一般瀏覽器
-    無痕模式
-    F12 → Network → Disable Cache
-
-測試 Browser Cache 是否影響畫面更新。
-
-### 專案實作安排
-
-FastAPI 現在同時提供：
-
-    FastAPI :7777
-    ├─ /              → Web UI
-    ├─ /app.js        → JavaScript
-    ├─ /css/...       → CSS
-    └─ /api/...       → Backend API
-
-Web UI 實際來源：
-
-    WEB/site/
-    ├─ index.html
-    ├─ app.js
-    └─ css/
-
-因此後續 Web 課程所開發的前端頁面，可以由目前的 FastAPI Server 提供。
-
-Public directory 只放準備提供給 Browser 的公開檔案。
-
-不應放入：
-
-    .env
-    Database password
-    Python backend source
-    其他敏感設定檔
-
-老師教材提到限制 StaticFiles 的公開檔案類型。
-
-目前專案實際仍使用 `app.js`，因此暫時不額外建立只允許 `.html` 與 `.css` 的副檔名限制，避免 JavaScript 無法載入。
-
-目前先確保 Public Directory 與 Backend、設定檔及敏感資料分離。
-
-### 本週練習
-
-- 建立 `run.bat`。
-- 使用專案 venv Python 啟動 Uvicorn。
-- 使用 `0.0.0.0:7777` 啟動 FastAPI。
-- 使用 local IP 存取網站。
-- 將 Web UI 設為網站 root。
-- API 統一放到 `/api/`。
-- 使用 StaticFiles 提供 HTML／CSS／JavaScript。
-- 使用 Browser 測試 Web 與 API。
-- 測試 Browser Cache。
-- 使用學校公開 HTTPS Demo 網址存取。
-
-### 驗收標準
-
-- [x] `run.bat` 已建立。
-- [x] FastAPI 可使用 port `7777`。
-- [x] 使用 `0.0.0.0` 啟動服務。
-- [x] local IP 可正常存取。
-- [x] `/` 可正常顯示 `WEB/site/index.html`。
-- [x] `/api/health` 可正常回傳資料。
-- [x] Web App 與 API 可同時運作。
-- [x] API 已統一使用 `/api/`。
-- [x] StaticFiles 已成功提供 Web 前端資源。
-- [x] Browser Cache 已實際測試。
-- [x] 無痕模式可正常取得最新版頁面。
-- [x] 學校公開 HTTPS 網址已成功存取。
-- [ ] 若老師之後要求額外限制 StaticFiles 可公開副檔名，再依課堂要求調整；目前已將公開前端資料夾與後端、敏感設定分離。
-- [ ] 完成本次最新版本 commit 與 push。
-
-### 學習心得
-
-W03 讓我理解 FastAPI 不只可以提供 API，也可以作為 Web Server 提供靜態前端檔案。
-
-原本：
-
-    Browser
-    ↓
-    FastAPI API
-
-現在則變成：
-
-    Browser
-    ↓
-    FastAPI
-    ├─ Web App
-    └─ API
-
-`app.mount()`：
-
-    app.mount(
-        "/",
-        StaticFiles(directory=PUBLIC_DIRECTORY, html=True),
-        name="web"
-    )
-
-代表將某個資料夾掛載到 FastAPI 的某個 URL 路徑。
-
-其中：
-
-    "/"
-
-表示網站根目錄。
-
-    StaticFiles
-
-表示提供已存在的靜態檔案，例如：
-
-    HTML
-    CSS
-    JavaScript
-    圖片
-
-    directory=PUBLIC_DIRECTORY
-
-表示 FastAPI 要去哪一個資料夾尋找前端檔案。
-
-    html=True
-
-表示以 HTML 網站模式提供檔案，開啟 `/` 時可以直接取得 `index.html`。
-
+2. 同時提供 Web App 與 API。
+3. API 統一使用 `/api/`。
+4. 使用 StaticFiles 提供 Web 前端。
+
+## 架構
+
+```text
+Browser
+↓
+FastAPI :7777
+├─ /
+│  └─ Web App
+│
+└─ /api/
+   └─ Backend API
+```
+
+Web 前端位於：
+
+```text
+WEB/site/
+├─ index.html
+├─ app.js
+└─ css/
+```
+
+FastAPI 使用：
+
+```python
+app.mount(
+    "/",
+    StaticFiles(directory=PUBLIC_DIRECTORY, html=True),
     name="web"
-
-則是替這個 mount 取一個名稱，供 FastAPI 內部識別。
-
-另外：
-
-    127.0.0.1
-
-只能由目前這台電腦自己存取。
-
-    0.0.0.0
-
-則代表 Server 監聽所有可用網路介面，因此除了 localhost，也可以透過 local IP 存取。
-
-這次也理解 Browser Cache 可能造成前端檔案已修改，但瀏覽器仍顯示舊版本的情況。
-
-遇到此問題時可以使用：
-
-    無痕模式
-    或
-    F12 → Network → Disable Cache
-
-協助排查。
-
----
-
-## W01～W03 目前進度摘要
-
-目前已完成：
-
-    W01
-    FastAPI 基礎架構
-    ↓
-    W02
-    FastAPI + PostgreSQL
-    ↓
-    W03
-    Web App + FastAPI API
-
-目前系統基本架構已形成：
-
-    Browser
-    ↓
-    FastAPI :7777
-    ├─ WEB/site
-    │  ├─ HTML
-    │  ├─ CSS
-    │  └─ JavaScript
-    │
-    └─ /api/
-       ↓
-    SQLAlchemy
-       ↓
-    PostgreSQL
-
-下一階段將進入 W04 CRUD API 完整實作，確認：
-
-    Create
-    Read
-    Update
-    Delete
-
-皆可透過 Swagger 正常操作 PostgreSQL 資料。
-
-W01～W03 文件整理完成後，再統一進行：
-
-    git status
-    ↓
-    確認變更
-    ↓
-    git add
-    ↓
-    git commit
-    ↓
-    git push
-
----
-
----
-
-## W04：CRUD API 完整實作 {#CRUD}
-
-### 學習目標
-
-本週將 API 層與資料庫層串接，完成 RESTful CRUD，建立從 HTTP Request 到 PostgreSQL 的完整資料操作流程。
-
-本週先使用 `Note` 完成 CRUD，再以 `User` 練習相同架構，確認能將 CRUD 架構套用至不同的 ORM Model。
-
-### RESTful API
-
-RESTful API 是一種以「資源（Resource）」為中心設計 HTTP API 的方式。
-
-以 Note 為例：
-
-```text
-/api/notes/
-```
-
-代表 Note 集合，而：
-
-```text
-/api/notes/{note_id}
-```
-
-代表指定的一筆 Note。
-
-透過不同 HTTP Method 表示不同操作：
-
-| HTTP Method | CRUD | 功能 |
-| --- | --- | --- |
-| POST | Create | 新增資料 |
-| GET | Read | 查詢資料 |
-| PUT | Update | 修改資料 |
-| DELETE | Delete | 刪除資料 |
-
-### Schema 與 ORM Model
-
-新增：
-
-```text
-app/schemas/note.py
-```
-
-使用 Pydantic Schema 區分 API 的輸入與輸出資料格式：
-
-```python
-from pydantic import BaseModel
-from datetime import datetime
-from typing import Optional
-
-
-class NoteCreate(BaseModel):
-    title: str
-    content: Optional[str] = None
-
-
-class NoteResponse(BaseModel):
-    id: int
-    title: str
-    content: Optional[str]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-```
-
-其中：
-
-```text
-NoteCreate
-→ Client 傳給 API 的資料格式
-
-NoteResponse
-→ API 回傳給 Client 的資料格式
-
-Note
-→ SQLAlchemy ORM Model，負責 Python 與 PostgreSQL 之間的資料對應
-```
-
-### Note Router
-
-新增：
-
-```text
-app/api/notes.py
-```
-
-設定：
-
-```python
-router = APIRouter(
-    prefix="/notes",
-    tags=["notes"]
 )
 ```
 
-並完成：
+提供靜態前端。
+
+## `run.bat`
+
+使用專案自己的 venv Python：
+
+```bat
+"%~dp0venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 7777 --reload
+```
+
+其中：
+
+```text
+0.0.0.0
+→ 監聽所有網路介面
+
+7777
+→ FastAPI 使用的 Port
+
+--reload
+→ 程式修改後自動重新載入
+```
+
+## 本週實作
+
+- 建立 `run.bat`
+- FastAPI 使用 Port 7777
+- API 統一為 `/api/...`
+- Web App 掛載至 `/`
+- StaticFiles 提供 HTML / CSS / JavaScript
+- Local IP 測試
+- Browser Cache 測試
+
+## 驗收
+
+- [x] `/` 可顯示 Web App
+- [x] `/api/health` 可正常回應
+- [x] Web 與 API 可同時運作
+- [x] StaticFiles 可正常讀取前端資源
+
+---
+
+# W04：RESTful CRUD API
+
+## 學習目標
+
+將 API 層與資料庫層串接，完成完整 CRUD：
+
+```text
+Create
+Read
+Update
+Delete
+```
+
+## RESTful API
+
+以 Note 為例：
+
+| HTTP Method | CRUD | 功能 |
+|---|---|---|
+| POST | Create | 新增 |
+| GET | Read | 查詢 |
+| PUT | Update | 修改 |
+| DELETE | Delete | 刪除 |
+
+建立：
 
 ```text
 POST   /api/notes/
@@ -773,147 +323,7 @@ PUT    /api/notes/{note_id}
 DELETE /api/notes/{note_id}
 ```
 
-在 `main.py` 中註冊：
-
-```python
-from app.api import notes
-
-app.include_router(notes.router, prefix="/api")
-```
-
-因此：
-
-```text
-main.py       /api
-notes router  /notes
-
-→ /api/notes/
-```
-
-### Note CRUD
-
-#### Create
-
-```text
-POST /api/notes/
-```
-
-執行流程：
-
-```text
-Request
-↓
-NoteCreate
-↓
-SQLAlchemy Note
-↓
-db.add()
-↓
-db.commit()
-↓
-db.refresh()
-↓
-PostgreSQL
-↓
-NoteResponse
-```
-
-#### Read All
-
-```text
-GET /api/notes/
-```
-
-使用：
-
-```python
-db.query(Note).all()
-```
-
-取得所有 Note。
-
-#### Read One
-
-```text
-GET /api/notes/{note_id}
-```
-
-依照 `note_id` 查詢指定 Note。
-
-若資料不存在：
-
-```python
-raise HTTPException(
-    status_code=404,
-    detail="Note not found"
-)
-```
-
-#### Update
-
-```text
-PUT /api/notes/{note_id}
-```
-
-先找出原本資料，再更新欄位：
-
-```python
-for key, value in note_data.model_dump().items():
-    setattr(note, key, value)
-```
-
-最後：
-
-```python
-db.commit()
-db.refresh(note)
-```
-
-#### Delete
-
-```text
-DELETE /api/notes/{note_id}
-```
-
-使用：
-
-```python
-db.delete(note)
-db.commit()
-```
-
-刪除指定資料。
-
-### User CRUD 練習
-
-完成 Note CRUD 後，再將相同架構套用到 `User`。
-
-原有 User Model 欄位：
-
-```text
-id
-email
-hashed_password
-created_at
-```
-
-新增：
-
-```text
-app/schemas/user.py
-app/api/users.py
-```
-
-在 `main.py` 註冊：
-
-```python
-from app.api import notes, users
-
-app.include_router(notes.router, prefix="/api")
-app.include_router(users.router, prefix="/api")
-```
-
-完成：
+以及：
 
 ```text
 POST   /api/users/
@@ -923,31 +333,20 @@ PUT    /api/users/{user_id}
 DELETE /api/users/{user_id}
 ```
 
-### 本週練習
+## Router / Schema / Model
 
-1. 建立 `NoteCreate` 與 `NoteResponse` Schema。
-2. 建立 Note Router。
-3. 完成 Note 的 Create、Read、Update、Delete。
-4. 將 Note Router 註冊至 `main.py`。
-5. 使用 Swagger 測試完整 CRUD。
-6. 找不到指定 Note 時回傳 `404 Not Found`。
-7. 將相同 CRUD 架構套用到 User Model。
+```text
+Router
+→ API Path、HTTP Method、資料操作流程
 
-### 驗收標準
+Schema
+→ API Input / Output 格式
 
-- [x] `POST /api/notes/` 可新增 Note
-- [x] `GET /api/notes/` 可查詢全部 Note
-- [x] `GET /api/notes/{note_id}` 可查詢單筆 Note
-- [x] `PUT /api/notes/{note_id}` 可修改 Note
-- [x] `DELETE /api/notes/{note_id}` 可刪除 Note
-- [x] 查詢不存在的 Note 回傳 `404 Not Found`
-- [x] User CRUD 完整實作
-- [x] User 刪除後再次查詢回傳 `404 Not Found`
-- [x] Swagger UI 可正常測試所有 API
+Model
+→ SQLAlchemy ORM 與 PostgreSQL Table 對應
+```
 
-### 心得
-
-本週第一次完整串接：
+資料流程：
 
 ```text
 HTTP Request
@@ -961,73 +360,72 @@ SQLAlchemy ORM
 PostgreSQL
 ```
 
-理解 `Model`、`Schema` 與 `Router` 的不同角色：
-
-```text
-Model
-→ 定義資料庫資料與 Python Object 的對應
-
-Schema
-→ 定義 API 接收與回傳的資料格式
-
-Router
-→ 定義 API Path、HTTP Method 與 CRUD 邏輯
-```
-
-也實際理解：
+常用 SQLAlchemy 操作：
 
 ```text
 db.add()
-→ 將新物件加入 Session
+→ 將物件加入 Session
 
 db.commit()
-→ 將交易真正寫入資料庫
+→ 寫入 Database
 
 db.refresh()
-→ 從資料庫重新取得最新資料
+→ 重新取得最新資料
 
 db.query()
 → 查詢資料
 
-HTTPException(404)
-→ 處理指定資源不存在的情況
+db.delete()
+→ 刪除資料
 ```
 
-完成 Note CRUD 後，再將相同架構套用至 User CRUD，確認 CRUD 的結構可以套用到不同資料 Entity。
+## 本週實作
 
-目前 Note 與 User 主要仍是課程架構練習；後續正式專題會再將相同概念套用至製程異常分析平台所需要的 Dataset、Analysis Batch、Prediction Result 等資料。
+- Note CRUD
+- User CRUD
+- Pydantic Schema
+- Router 分層
+- ORM Model
+- 404 Error Handling
+- Swagger UI 測試
+
+## 驗收
+
+- [x] Note Create
+- [x] Note Read All
+- [x] Note Read One
+- [x] Note Update
+- [x] Note Delete
+- [x] User CRUD
+- [x] 不存在資料回傳 404
+- [x] Swagger 可正常操作
 
 ---
 
----
+# W05：關聯式設計、Function 與 View
 
-## W05：關聯式設計：View {#DbView}
+## 學習目標
 
-### 學習目標
+從單一資料表 CRUD 進一步進入多資料表關聯。
 
-本週從單一資料表 CRUD 進一步進入多資料表關聯，理解 Class、Inheritance、Object、CO 的資料關係，並使用 PostgreSQL Function 與 View 封裝常用資料操作與查詢。
+本週建立：
 
-本週將完成：
-
-Class / Inheritance / Object / CO
+```text
+Class
+Inheritance
+Object
+CO
 ↓
-insertClass()
+Function
 ↓
-vd_subclass / vd_objectlist / vd_object
+View
 ↓
 FastAPI API
+```
 
-### Class、Inheritance、Object、CO
+## Class / Inheritance / Object / CO
 
-建立：
-
-class
-inheritance
-object
-co
-
-其中：
-
+```text
 Class
 → 分類或功能目錄
 
@@ -1035,124 +433,67 @@ Inheritance
 → Class 與 Class 的父子關係
 
 Object
-→ 實際功能或內容物件
+→ 實際功能或內容
 
 CO
 → Class 與 Object 的關係
+```
 
-Inheritance 使用：
+Inheritance：
 
+```text
 pcid
 → parent class id
 
 ccid
 → child class id
+```
 
-兩者都是 Foreign Key：
+CO：
 
-inheritance.pcid
-→ class.cid
-
-inheritance.ccid
-→ class.cid
-
-CO 則使用：
-
+```text
 cid
-→ class.cid
+→ class id
 
 oid
-→ object.oid
+→ object id
+```
 
-並以：
+以：
 
+```text
 (cid, oid)
+```
 
 作為 Composite Primary Key。
 
-因為：
-
-一個 Class 可以包含多個 Object
-一個 Object 也可以屬於多個 Class
-
-所以單獨的 cid 或 oid 都不能唯一辨識一筆關係。
-
-### Identity
-
-將：
-
-class.cid
-object.oid
-
-設定為：
-
-GENERATED BY DEFAULT AS IDENTITY
-
-代表新增資料時，可以由 PostgreSQL 自動產生流水號。
-
-其中：
-
-PRIMARY KEY
-→ 確保值唯一
-
-IDENTITY
-→ 自動產生編號
-
-兩者功能不同，但可以同時使用。
-
-### insertClass() Function
+## `insertClass()` Function
 
 建立：
 
+```text
 insertClass(pcid, pname, cname)
+```
 
-三個參數分別代表：
+主要流程：
 
-pcid
-→ parent class id
-
-pname
-→ parent class name
-
-cname
-→ child class name
-
-其中：
-
-$1 = pcid
-$2 = pname
-$3 = cname
-
-Function 內使用：
-
-v_ccid
-→ 暫存 child class 的 cid
-
-parent_idpath
-→ 暫存 parent class 的 idpath
-
-執行流程：
-
-確認 parent cid 存在
+```text
+確認 Parent
 ↓
-確認 parent cid 與 pname 相符
+確認 Child 是否存在
 ↓
-查詢是否已有同名 child
+必要時建立 Child
 ↓
-沒有則新增 child
+建立 Inheritance
 ↓
-取得 child cid
+更新 Path
 ↓
-建立 inheritance 關係
-↓
-取得 parent idpath
-↓
-更新 child 的 idpath / namepath
-↓
-回傳 child cid
+回傳 Child cid
+```
 
-目前使用專案情境建立：
+目前專案測試分類：
 
+```text
 首頁
 └─ 製程異常分析平台
    ├─ 資料管理
@@ -1160,159 +501,69 @@ parent_idpath
    ├─ 分析結果
    ├─ 歷史紀錄
    └─ 系統設定
+```
 
-### Database View
+## View
 
-本週建立三個 View：
+建立：
 
+```text
 vd_subclass
 vd_objectlist
 vd_object
+```
 
-View 可以理解為：
+### `vd_subclass`
 
-JOIN / SELECT Query
+用途：
+
+```text
+parent class id
 ↓
-包成一個可以重複查詢的虛擬表
+查詢 child class
+```
 
-與 JOIN 的差別：
+API：
 
-JOIN
-→ 定義資料如何跨表組合
-
-View
-→ 將常用 Query 保存成可重複查詢的資料介面
-
-### vd_subclass
-
-建立：
-
-vd_subclass
-
-使用：
-
-class(parent)
-+
-inheritance
-+
-class(child)
-
-整理 parent 與 child Class 的關係。
-
-目前可使用：
-
-SELECT *
-FROM vd_subclass
-WHERE pcid = 1;
-
-取得：
-
-資料管理
-分析設定
-分析結果
-歷史紀錄
-系統設定
-
-新增 API：
-
+```text
 GET /api/subclass/pcid/{id}
+```
 
-例如：
+### `vd_objectlist`
 
-GET /api/subclass/pcid/1
+用途：
 
-### Object 與 CO
+```text
+class id
+↓
+查詢該 Class 底下的 Object
+```
 
-目前在：
+API：
 
-資料管理(cid=2)
-
-底下建立三個 Object：
-
-oid=1
-→ 上傳資料集
-
-oid=2
-→ 資料品質檢查
-
-oid=3
-→ 版本管理
-
-再透過 CO 建立：
-
-cid | oid
-2   | 1
-2   | 2
-2   | 3
-
-代表：
-
-資料管理
-├─ 上傳資料集
-├─ 資料品質檢查
-└─ 版本管理
-
-### vd_objectlist
-
-建立：
-
-vd_objectlist
-
-用途為：
-
-已知 cid
-→ 查詢該 Class 底下有哪些 Object
-
-新增 API：
-
+```text
 GET /api/subclass/objectlist/cid/{id}
+```
 
-### vd_object
+### `vd_object`
 
-建立：
+用途：
 
-vd_object
+```text
+object id
+↓
+查詢單一 Object
+```
 
-目前依專案需求保留：
+API：
 
-oid
-title
-class
-des
-
-用途為：
-
-已知 oid
-→ 查詢單一 Object 詳細內容
-
-新增 API：
-
+```text
 GET /api/subclass/object/{id}
+```
 
-### Subclass Router
+## FastAPI 與 View
 
-新增：
-
-app/api/subclass.py
-
-並在 main.py 註冊：
-
-from app.api import notes, users, subclass
-
-app.include_router(subclass.router, prefix="/api")
-
-因此：
-
-main.py
-/api
-
-subclass router
-/subclass
-
-→ /api/subclass/...
-
-資料查詢流程：
-
+```text
 Request
 ↓
 FastAPI Router
@@ -1328,118 +579,1267 @@ PostgreSQL View
 result.mappings()
 ↓
 JSON Response
+```
 
-其中：
+## 最小授權
 
-Depends(get_db)
-→ 取得資料庫操作 Session
+FastAPI 使用 `dev_user`。
 
-db.execute(...)
-→ 真正執行 SQL
+View 僅給予：
 
-mappings().all()
-→ 取得多筆資料
-
-mappings().first()
-→ 取得單筆資料
-
-### API 最小授權原則
-
-FastAPI 使用 dev_user 連線 PostgreSQL。
-
-View 僅提供 API 需要的讀取權限：
-
+```sql
 GRANT SELECT ON vd_subclass TO dev_user;
 GRANT SELECT ON vd_objectlist TO dev_user;
 GRANT SELECT ON vd_object TO dev_user;
+```
+
+避免提供不需要的 INSERT / UPDATE / DELETE 權限。
+
+## 驗收
+
+- [x] Class 已建立
+- [x] Inheritance 已建立
+- [x] Object 已建立
+- [x] CO 已建立
+- [x] `insertClass()` 已建立
+- [x] 三個 View 可正常查詢
+- [x] View API 可正常使用
+- [x] `dev_user` 已設定最小 SELECT 權限
+
+## 心得
+
+Function：
+
+```text
+將多步驟資料操作封裝成可重複執行流程
+```
+
+View：
+
+```text
+將常用 SELECT / JOIN 封裝成可重複查詢的虛擬表
+```
+
+---
+
+# W06：Authentication、JWT 與受保護 API
+
+## 學習目標
+
+1. 理解 Authentication 與 Authorization。
+2. 建立本地 Member。
+3. 使用 JWT 表示登入身分。
+4. 使用 Cookie 傳遞 JWT。
+5. 建立 Current Member 驗證。
+6. 保護需要登入的 API。
+7. 理解 OAuth2 / OIDC 與本地 JWT 的關係。
+
+---
+
+## Authentication 與 Authorization
+
+Authentication：
+
+```text
+你是誰？
+```
+
+例如：
+
+```text
+目前登入者
+→ Member 1
+```
+
+Authorization：
+
+```text
+你可以做什麼？
+```
+
+例如：
+
+```text
+只有已登入 Member
+→ 可以使用某些 API
+```
+
+目前 W06 先完成：
+
+```text
+Authentication
++
+是否已登入的 API 保護
+```
+
+---
+
+## OAuth2、OIDC 與 JWT
+
+Google 登入的完整概念：
+
+```text
+Browser
+↓
+Google Login
+↓
+OIDC
+↓
+取得 sub / email / name
+↓
+建立或更新本地 Member
+↓
+建立本系統 JWT
+↓
+Cookie
+↓
+後續 API
+```
+
+其中：
+
+```text
+OAuth2
+→ Authorization Framework
+
+OIDC
+→ 在 OAuth2 上加入 Identity
+
+JWT
+→ 本系統用來保存登入身分資訊的 Token
+```
+
+目前 Google OIDC 尚未實作完成，因此本週先使用測試 Member 驗證後半段流程：
+
+```text
+Member
+↓
+JWT
+↓
+Cookie
+↓
+Protected API
+```
+
+---
+
+## Member Table
+
+建立：
+
+```text
+member
+```
+
+主要欄位：
+
+```text
+mid
+google_sub
+email
+name
+is_active
+created_at
+last_login
+```
+
+### 欄位用途
+
+```text
+mid
+→ 本系統 Member ID
+
+google_sub
+→ Google Account 穩定識別值
+
+email
+→ Email
+
+name
+→ 顯示名稱
+
+is_active
+→ 帳號是否可使用
+
+created_at
+→ 建立時間
+
+last_login
+→ 最近登入時間
+```
+
+`google_sub` 使用 UNIQUE，避免同一 Google Account 被建立成多個 Member。
+
+---
+
+## Member ORM Model
+
+建立：
+
+```text
+app/models/member.py
+```
+
+用途：
+
+```text
+Python Member Object
+↕
+PostgreSQL member Table
+```
+
+---
+
+## Repository
+
+建立：
+
+```text
+app/repositories/member.py
+```
+
+目前主要 Function：
+
+```text
+upsert_member()
+get_active_member_by_id()
+```
+
+### `upsert_member()`
+
+流程：
+
+```text
+依 google_sub 查詢
+↓
+不存在
+→ INSERT Member
+
+已存在
+→ UPDATE
+   email
+   name
+   last_login
+```
+
+實際測試：
+
+```text
+第一次
+google_sub = test-google-sub
+→ 建立 mid = 1
+```
+
+再次使用相同 `google_sub`：
+
+```text
+email / name 更新
+mid 仍然 = 1
+```
+
+確認沒有新增第二個 Member。
+
+---
+
+## Member Database 權限
+
+FastAPI 使用 `dev_user`。
+
+本週授權：
+
+```sql
+GRANT SELECT, INSERT, UPDATE
+ON TABLE member
+TO dev_user;
+
+GRANT USAGE, SELECT
+ON SEQUENCE member_mid_seq
+TO dev_user;
+```
+
+目前不需要刪除 Member，因此不提供 DELETE。
+
+符合：
+
+```text
+Least Privilege
+→ 只提供功能真正需要的權限
+```
+
+---
+
+## JWT
+
+建立：
+
+```text
+app/core/security.py
+```
+
+主要 Function：
+
+```text
+create_access_token()
+decode_access_token()
+```
+
+目前使用：
+
+```text
+HS256
+```
+
+Token 主要內容：
+
+```text
+sub
+→ Member ID
+
+iat
+→ Issued At
+
+exp
+→ Expiration Time
+```
+
+目前：
+
+```text
+ACCESS_TOKEN_EXPIRE_SECONDS = 3600
+```
+
+也就是：
+
+```text
+1 小時
+```
+
+### 建立 Token
+
+```text
+member.mid
+↓
+create_access_token()
+↓
+JWT
+```
+
+### 驗證 Token
+
+```text
+JWT
+↓
+decode_access_token()
+↓
+驗證 Signature
+↓
+驗證 Expiration
+↓
+讀取 sub
+↓
+Member ID
+```
+
+JWT 不保存密碼。
+
+JWT 主要利用 Signature 確認 Token 沒有被任意修改。
+
+---
+
+## Cookie
+
+目前 API 從：
+
+```text
+access_token
+```
+
+Cookie 取得 JWT。
+
+流程：
+
+```text
+Browser
+↓
+Cookie
+↓
+Request
+↓
+FastAPI
+```
+
+後續若使用 HttpOnly Cookie，JavaScript 不需要直接讀取 JWT。
+
+---
+
+## `get_current_member()`
+
+建立：
+
+```text
+app/core/auth.py
+```
+
+流程：
+
+```text
+Request
+↓
+讀取 access_token Cookie
+↓
+沒有 Token
+→ 401 Unauthorized
+
+有 Token
+↓
+JWT Decode
+↓
+取得 member_id
+↓
+查詢 Member
+↓
+確認 is_active
+↓
+回傳 Member
+```
+
+即使 Token 尚未過期，如果：
+
+```text
+is_active = false
+```
+
+仍不允許使用受保護 API。
+
+---
+
+## `/api/auth/me`
+
+建立：
+
+```text
+app/api/auth.py
+```
+
+API：
+
+```text
+GET /api/auth/me
+```
+
+用途：
+
+```text
+目前 Request
+↓
+驗證 JWT
+↓
+確認 Member
+↓
+回傳目前登入者
+```
+
+未登入：
+
+```text
+401 Unauthorized
+```
+
+使用合法測試 JWT：
+
+```text
+200 OK
+```
+
+並成功取得：
+
+```text
+mid
+email
+name
+```
+
+---
+
+## Router 層級保護
+
+Notes Router：
+
+```python
+router = APIRouter(
+    prefix="/notes",
+    tags=["notes"],
+    dependencies=[Depends(get_current_member)]
+)
+```
+
+Subclass Router 同樣加入：
+
+```text
+Depends(get_current_member)
+```
+
+因此：
+
+```text
+Request
+↓
+Authentication
+↓
+原本 Endpoint
+```
+
+目前受保護：
+
+```text
+/api/notes/...
+/api/subclass/...
+```
+
+測試：
+
+```text
+沒有 JWT
+→ 401
+
+合法 JWT
+→ 200
+```
+
+---
+
+## W06 本週實作
+
+1. 建立 `member` Table。
+2. 建立 Member ORM Model。
+3. 建立 Member Repository。
+4. 建立 Member Upsert。
+5. 設定 `dev_user` 最小權限。
+6. 安裝 JWT / Authentication 套件。
+7. 建立 `security.py`。
+8. 建立 JWT Create / Decode。
+9. 建立 `auth.py`。
+10. 建立 `get_current_member()`。
+11. 建立 `/api/auth/me`。
+12. 測試 401 / 200。
+13. 保護 Notes Router。
+14. 保護 Subclass Router。
+
+---
+
+## W06 驗收
+
+- [x] Member Table 已建立
+- [x] Member ORM Model 已建立
+- [x] Member Repository 已建立
+- [x] 第一次 Member 可 INSERT
+- [x] 相同 `google_sub` 可 UPDATE
+- [x] Member 最小資料庫權限已設定
+- [x] JWT 可建立
+- [x] JWT 可 Decode
+- [x] Token Expiration 已設定
+- [x] `/api/auth/me` 未登入回傳 401
+- [x] `/api/auth/me` 合法 JWT 回傳 200
+- [x] Notes Router 已保護
+- [x] Subclass Router 已保護
+- [ ] Google OIDC 登入流程
+
+---
+
+## W06 心得
+
+本週理解登入並不是只有 Login Endpoint。
+
+目前後端流程為：
+
+```text
+Member
+↓
+JWT
+↓
+Cookie
+↓
+每次 Request
+↓
+JWT 驗證
+↓
+Member 驗證
+↓
+Protected API
+```
+
+也理解：
+
+```text
+JWT
+≠ Password
+
+JWT
+≠ Database Session
+```
+
+JWT 是由 Server 簽署的 Token，用來表示 Request 所代表的登入身分。
+
+另外 Router 層級的：
+
+```python
+dependencies=[Depends(get_current_member)]
+```
+
+可以一次保護整組 API，不需要每個 Endpoint 都重複撰寫相同驗證。
+
+---
+
+# W07：EER Model and AI Gen Data
+
+## 學習目標
+
+1. 理解 PostgreSQL Schema。
+2. 理解 EER 與 Inheritance。
+3. 使用 Shared Primary Key 表達子類。
+4. 將課堂 EER 範例轉成目前專案情境。
+5. 建立 Dataset / Model / AnalysisRun。
+6. 使用測試資料驗證 EER。
+7. 建立可重複執行的 Virtual Data Script。
+
+---
+
+## PostgreSQL Schema
+
+W07 建立：
+
+```sql
+CREATE SCHEMA IF NOT EXISTS process_eer;
+```
+
+並設定：
+
+```sql
+SET search_path TO process_eer, public;
+```
+
+目前：
+
+```text
+process_eer
+→ W07 EER Model
+
+public
+→ 原本 W01～W06 Table / View
+```
+
+---
+
+## Database 與 Schema
+
+可以理解成：
+
+```text
+PostgreSQL Server
+└─ Database
+   ├─ public Schema
+   └─ process_eer Schema
+```
+
+Schema 是同一個 Database 裡的 Namespace。
+
+因此不同 Schema 可以存在同名 Table：
+
+```text
+public.object
+process_eer.object
+```
+
+兩者是不同物件。
+
+---
+
+## `search_path`
+
+設定：
+
+```sql
+SET search_path TO process_eer, public;
+```
+
+表示沒有明確指定 Schema 時：
+
+```text
+先找 process_eer
+↓
+找不到
+↓
+再找 public
+```
+
+例如：
+
+```sql
+SELECT * FROM object;
+```
+
+會優先查：
+
+```text
+process_eer.object
+```
+
+也可以明確寫：
+
+```sql
+SELECT *
+FROM public.object;
+```
+
+或：
+
+```sql
+SELECT *
+FROM process_eer.object;
+```
+
+---
+
+## EER Model
+
+老師課堂原始概念為：
+
+```text
+Object
+└─ Member
+   ├─ Faculty
+   ├─ Staff
+   └─ Student
+```
+
+本專案保留 EER Inheritance 概念，但改成：
+
+```text
+Object
+├─ Dataset
+├─ Model
+└─ AnalysisRun
+```
+
+---
+
+## Object
+
+父類：
+
+```text
+Object
+```
+
+目前主要欄位：
+
+```text
+oid
+object_type
+created_at
+```
+
+`oid`：
+
+```text
+PRIMARY KEY
++
+IDENTITY
+```
+
+由 PostgreSQL 自動產生。
+
+---
+
+## Shared Primary Key
+
+Dataset：
+
+```text
+dataset.oid
+```
+
+同時是：
+
+```text
+PRIMARY KEY
++
+FOREIGN KEY → object.oid
+```
+
+例如：
+
+```text
+object
+oid = 1
+object_type = dataset
+
+dataset
+oid = 1
+dataset_name = AI4I 2020
+```
+
+兩筆資料不是兩個不同 Entity。
+
+而是：
+
+```text
+同一個 Dataset Entity
+↓
+Object 保存共用資訊
+Dataset 保存子類資訊
+```
+
+Model 與 AnalysisRun 也是相同概念。
+
+---
+
+## Dataset
+
+建立：
+
+```text
+process_eer.dataset
+```
+
+欄位：
+
+```text
+oid
+dataset_name
+source
+version
+description
+```
+
+目前測試資料：
+
+```text
+oid = 1
+dataset_name = AI4I 2020
+source = UCI Machine Learning Repository
+version = v1
+```
+
+---
+
+## Model
+
+建立：
+
+```text
+process_eer.model
+```
+
+欄位：
+
+```text
+oid
+model_name
+algorithm
+version
+description
+```
+
+目前：
+
+```text
+oid = 2
+model_name = AI4I Failure Predictor
+algorithm = Logistic Regression
+version = v1
+```
+
+---
+
+## AnalysisRun
+
+建立：
+
+```text
+process_eer.analysis_run
+```
+
+欄位：
+
+```text
+oid
+dataset_oid
+model_oid
+threshold
+run_time
+status
+```
+
+目前：
+
+```text
+oid = 3
+dataset_oid = 1
+model_oid = 2
+threshold = 0.5000
+status = completed
+```
 
 代表：
 
-可以 SELECT
-但沒有額外取得 INSERT / UPDATE / DELETE 權限
+```text
+AI4I 2020
+↓
+AnalysisRun 3
+↑
+AI4I Failure Predictor
+```
 
-避免給 API 不需要的資料庫權限。
+---
 
-### 本週練習
+## Dataset、Model 與 AnalysisRun
 
-1. 建立 academic.sql。
-2. 建立 Class、Inheritance、Object、CO。
-3. 建立 insertClass() Function。
-4. 建立製程異常分析平台 Class 階層。
-5. 建立 vd_subclass。
-6. 建立 Object 與 CO 測試資料。
-7. 建立 vd_objectlist。
-8. 建立 vd_object。
-9. 建立 Subclass Router。
-10. 建立 /api/subclass/pcid/{id}。
-11. 建立 /api/subclass/objectlist/cid/{id}。
-12. 建立 /api/subclass/object/{id}。
-13. 使用 Swagger 測試 API。
-14. 設定 View 的 API 最小 SELECT 權限。
+一個 Dataset 可以：
 
-### 驗收標準
+```text
+Dataset A
+├─ Model A
+├─ Model B
+└─ Model C
+```
 
-- [x] class table 已建立
-- [x] inheritance table 已建立
-- [x] object table 已建立
-- [x] co table 已建立
-- [x] insertClass() 已建立並成功執行
-- [x] 製程異常分析平台 Class 階層已建立
-- [x] vd_subclass 可正常查詢
-- [x] vd_objectlist 可正常查詢
-- [x] vd_object 可正常查詢
-- [x] dev_user 已取得 View 的 SELECT 權限
-- [x] /api/subclass/pcid/{id} 可正常回傳資料
-- [x] /api/subclass/objectlist/cid/{id} 已建立
-- [x] /api/subclass/object/{id} 已建立
-- [x] Swagger UI 可正常測試 View API
-- [ ] 完成本次最新版本 commit 與 push
+一個 Model 也可以：
 
-### 心得
+```text
+Model A
+├─ Dataset A
+├─ Dataset B
+└─ Dataset C
+```
 
-本週從 W04 的單一資料表 CRUD，進一步理解多資料表之間的關係。
+因此：
 
-Inheritance 與 CO 都屬於關係表，但用途不同：
+```text
+Dataset
+↔
+Model
+```
 
-Inheritance
-→ Class ↔ Class
+可以透過：
 
-CO
-→ Class ↔ Object
+```text
+AnalysisRun
+```
 
-也理解 Composite Primary Key 的用途：
+形成多對多關係。
 
-(cid, oid)
+每一筆 AnalysisRun 保存：
 
-不是要求 cid 或 oid 各自唯一，而是要求這一組 Class-Object 關係不能重複。
+```text
+哪一份 Dataset
++
+哪一個 Model
++
+哪一個 Threshold
++
+什麼時間執行
++
+執行狀態
+```
 
-本週也理解 Function 與 View 的用途：
+---
 
-Function
-→ 將多個資料操作步驟包成一個可重複執行的流程
+## JOIN 驗證
 
-View
-→ 將常用跨表查詢包成可重複查詢的虛擬表
+使用：
 
-FastAPI 端則進一步理解：
+```sql
+SELECT
+    r.oid AS run_oid,
+    d.dataset_name,
+    m.model_name,
+    m.algorithm,
+    r.threshold,
+    r.status,
+    r.run_time
+FROM analysis_run r
+JOIN dataset d
+    ON r.dataset_oid = d.oid
+JOIN model m
+    ON r.model_oid = m.oid;
+```
 
-get_db()
-→ 取得資料庫 Session
+成功取得：
 
-db.execute()
-→ 執行 SQL
+```text
+run_oid = 3
+dataset_name = AI4I 2020
+model_name = AI4I Failure Predictor
+algorithm = Logistic Regression
+threshold = 0.5000
+status = completed
+```
 
-result.mappings()
-→ 將查詢結果轉成可回傳的 mapping 資料
+確認：
 
-在 API 測試時曾遇到 500 Internal Server Error，最後透過 Uvicorn traceback 發現：
+```text
+Dataset
+↔
+AnalysisRun
+↔
+Model
+```
 
-result.mapping()
+關聯正確。
 
-應改為：
+---
 
-result.mappings()
+## `process_eer.sql`
 
-也因此更理解 Swagger 顯示的 HTTP Error 與後端 traceback 是不同層次的資訊，除錯時不能只看 Swagger。
+建立：
 
-最後透過 GRANT SELECT 理解 API 最小授權原則：API 只取得真正需要的資料庫權限，不因方便而直接使用過大的資料庫權限。
+```text
+psql/process_eer.sql
+```
+
+用途：
+
+```text
+CREATE process_eer Schema
+↓
+CREATE Object
+↓
+CREATE Dataset
+↓
+CREATE Model
+↓
+CREATE AnalysisRun
+```
+
+讓 EER 結構可以被 Git 保存，而不只是存在目前 Database。
+
+---
+
+## AI / Virtual Data
+
+建立：
+
+```text
+psql/process_vdata.sql
+```
+
+目前不需要自行生成大量感測器數據。
+
+因為：
+
+```text
+模型訓練 / Demo
+→ 使用 AI4I 公開 Dataset
+
+Database 練習
+→ 需要 Dataset / Model / Run 等 Metadata
+```
+
+因此目前 Virtual Data 主要建立：
+
+```text
+Dataset
+Model
+AnalysisRun
+```
+
+作為資料庫關聯、View、API 與歷史紀錄測試資料。
+
+---
+
+## 避免重複測試資料
+
+`process_vdata.sql` 使用：
+
+```sql
+WHERE NOT EXISTS (...)
+```
+
+執行流程：
+
+```text
+資料是否存在？
+↓
+是
+→ 不 INSERT
+
+否
+→ INSERT
+```
+
+重複執行腳本結果：
+
+```text
+SET
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+```
+
+表示三筆測試資料已經存在，因此沒有再新增。
+
+---
+
+## Encoding
+
+SQL File 第一行：
+
+```sql
+\encoding UTF8
+```
+
+用來指定 `psql` Client Encoding。
+
+避免系統使用 BIG5 時，遇到 UTF-8 SQL File 產生編碼錯誤。
+
+---
+
+## W07 本週實作
+
+1. 建立 `process_eer` Schema。
+2. 設定 `search_path`。
+3. 建立 Object Parent Entity。
+4. 建立 Dataset。
+5. 建立 Model。
+6. 建立 AnalysisRun。
+7. 使用 Shared Primary Key。
+8. 建立 AI4I Dataset。
+9. 建立 Logistic Regression Model。
+10. 建立 AnalysisRun。
+11. 使用 JOIN 驗證關聯。
+12. 建立 `process_eer.sql`。
+13. 建立 `process_vdata.sql`。
+14. 使用 `WHERE NOT EXISTS` 避免測試資料重複。
+15. 驗證 SQL File 可重複執行。
+
+---
+
+## W07 驗收
+
+- [x] `process_eer` Schema 已建立
+- [x] `search_path` 可正常設定
+- [x] Object Table 已建立
+- [x] Dataset Table 已建立
+- [x] Model Table 已建立
+- [x] AnalysisRun Table 已建立
+- [x] Shared Primary Key 可正常運作
+- [x] AI4I Dataset 已建立
+- [x] Logistic Regression Model 已建立
+- [x] AnalysisRun 已建立
+- [x] Dataset / Model / Run JOIN 成功
+- [x] `process_eer.sql` 已建立
+- [x] `process_vdata.sql` 已建立
+- [x] Virtual Data Script 可重複執行
+- [x] UTF-8 Client Encoding 已設定
+
+---
+
+## W07 心得
+
+本週理解 EER Inheritance 如何實際轉成 Relational Database。
+
+例如：
+
+```text
+Object oid = 1
+Dataset oid = 1
+```
+
+表示同一個 Entity 的不同層級資訊。
+
+子類的 `oid` 同時具有：
+
+```text
+PRIMARY KEY
++
+FOREIGN KEY
+```
+
+這就是目前使用的 Shared Primary Key。
+
+另外，也更清楚 Dataset 與 Model 不應直接硬限制成單純一對多：
+
+```text
+Dataset
+↔
+Model
+```
+
+可以透過：
+
+```text
+AnalysisRun
+```
+
+記錄每一次實際分析。
+
+這樣未來即使：
+
+```text
+相同 Dataset
++
+相同 Model
++
+不同 Threshold
+```
+
+仍可以保存成不同 Run。
+
+目前 W07 的 EER Model 是課程實作版本，已開始接近正式專題的核心資料結構，但後續仍會依完整需求、資料生命週期與實際應用情境調整。
+
+---
+
+# W01～W07 目前進度摘要
+
+目前已完成：
+
+```text
+W01
+FastAPI
+↓
+W02
+PostgreSQL + SQLAlchemy + Alembic
+↓
+W03
+Web App + API
+↓
+W04
+RESTful CRUD
+↓
+W05
+Relationship + Function + View
+↓
+W06
+Authentication + JWT
+↓
+W07
+EER + Virtual Data
+```
+
+目前後端架構：
+
+```text
+Browser / Swagger
+↓
+FastAPI Router
+↓
+Authentication
+↓
+Schema / Repository / ORM
+↓
+PostgreSQL
+├─ public
+└─ process_eer
+```
+
+目前正式專題逐步形成的核心資料概念：
+
+```text
+Member
+Dataset
+Model
+AnalysisRun
+```
+
+下一階段將繼續進入 Schema 與可重複使用的 Data View，並逐步將課堂資料庫概念整合到正式的製程異常分析平台。

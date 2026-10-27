@@ -3,8 +3,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.core.database import get_db
+from app.core.auth import get_current_member
 
-router = APIRouter(prefix="/subclass", tags=["subclass"])
+router = APIRouter(
+    prefix="/subclass",
+    tags=["subclass"],
+    dependencies=[Depends(get_current_member)]
+)
 #prefix="/subclass"：這個檔案底下的 API 都會以 /subclass 開頭
 
 @router.get("/pcid/{id}")

@@ -2,7 +2,7 @@
 from fastapi import FastAPI   
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles  #StaticFiles → 讓 FastAPI 可以提供靜態檔案（圖片、CSS、JS 等等）
-from app.api import notes, users, subclass, auth  #把 notes.py 裡的 API 路徑都掛到這個 FastAPI 應用程式裡
+from app.api import notes, users, subclass, auth, root  #把 notes.py 裡的 API 路徑都掛到這個 FastAPI 應用程式裡
 from pydantic import BaseModel
 
 
@@ -28,6 +28,7 @@ app.include_router(notes.router, prefix="/api")  #notes 裡所有 API 註冊到 
 app.include_router(users.router, prefix="/api")
 app.include_router(subclass.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(root.router, prefix="/api")
 
 @app.get("/api/health")
 #GET 是 HTTP 的一種 Method（方法），主要用來「取得資料」

@@ -1843,3 +1843,269 @@ AnalysisRun
 ```
 
 下一階段將繼續進入 Schema 與可重複使用的 Data View，並逐步將課堂資料庫概念整合到正式的製程異常分析平台。
+
+## W08 Schema and Reuse Data Views
+
+### 1. PostgreSQL Schema
+
+本週先了解 PostgreSQL Schema 的用途。
+
+目前 `fastapi_dev` 中主要有：
+
+```text
+fastapi_dev
+├─ public
+└─ process_eer
+
+## W08 Schema and Reuse Data Views
+
+### 1. PostgreSQL Schema
+
+目前 `fastapi_dev` 主要有：
+
+```text
+fastapi_dev
+├─ public
+└─ process_eer
+```
+
+- `public`：目前主要 API、Class/Object 等資料表。
+- `process_eer`：W07 建立的 EER 練習模型。
+
+不同 Schema 可以存在同名 Table，例如：
+
+```text
+public.object
+process_eer.object
+```
+
+其中：
+
+- `public.object`：存放「上傳資料集、資料品質檢查、版本管理」等功能物件。
+- `process_eer.object`：EER 模型中的父類 Object，對應 Dataset、Model、AnalysisRun。
+
+### 2. 查詢 Schema 與 Table
+
+查詢非系統 Schema：
+
+```sql
+SELECT schema_name
+FROM information_schema.schemata
+WHERE schema_name NOT IN ('information_schema')
+  AND schema_name NOT LIKE 'pg_%';
+```
+
+查詢特定 Schema 中的 Table：
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'process_eer'
+  AND table_type = 'BASE TABLE';
+```
+
+目前 `process_eer` 包含：
+
+```text
+object
+dataset
+model
+analysis_run
+```
+
+### 3. search_path
+
+查看目前搜尋順序：
+
+```sql
+SHOW search_path;
+```
+
+設定搜尋順序：
+
+```sql
+SET search_path TO process_eer, public;
+```
+
+此時：
+
+```sql
+SELECT * FROM object;
+```
+
+會優先查詢：
+
+```text
+process_eer.object
+```
+
+如果要避免混淆，可以直接指定 Schema：
+
+```sql
+SELECT * FROM public.object;
+SELECT * FROM process_eer.object;
+```
+
+### 4. 更新 vd_subclass
+
+原本 `vd_subclass` 只能取得 Parent / Child Class。
+
+本週加入：
+
+```sql
+COUNT(co.cid) AS n
+```
+
+用來表示每個 Child Class 直接關聯多少個 Object。
+
+```sql
+DROP VIEW public.vd_subclass;
+
+CREATE VIEW public.vd_subclass AS
+SELECT
+    p.cid AS pcid,
+    p.name AS parent_name,
+    c.cid,
+    c.name AS child_name,
+    COUNT(co.cid) AS n
+FROM public.class p
+JOIN public.inheritance i
+    ON p.cid = i.pcid
+JOIN public.class c
+    ON c.cid = i.ccid
+LEFT JOIN public.co
+    ON c.cid = co.cid
+GROUP BY
+    p.cid,
+    p.name,
+    c.cid,
+    c.name;
+```
+
+使用 `LEFT JOIN` 可以讓沒有 Object 的 Class 仍然保留，並顯示：
+
+```text
+n = 0
+```
+
+目前「資料管理」的 `n = 3`，對應：
+
+```text
+上傳資料集
+資料品質檢查
+版本管理
+```
+
+重新建立 View 後重新授權：
+
+```sql
+GRANT USAGE ON SCHEMA public TO dev_user;
+GRANT SELECT ON TABLE public.vd_subclass TO dev_user;
+```
+
+### 5. Repository Reuse
+
+新增：
+
+```text
+app/repositories/subclass.py
+```
+
+將原本寫在 API Route 中的 SQL 抽成共用函式：
+
+```python
+get_subclasses_by_pcid()
+get_objects_by_cid()
+get_object_by_oid()
+```
+
+目前結構：
+
+```text
+API Route
+↓
+Repository Function
+↓
+Database View
+↓
+PostgreSQL
+```
+
+這樣不同 API 可以共用相同查詢邏輯。
+
+### 6. /api/root
+
+新增：
+
+```text
+app/api/root.py
+```
+
+`/api/root` 固定呼叫：
+
+```python
+get_subclasses_by_pcid(db, 0)
+```
+
+取得首頁第一層分類。
+
+因此：
+
+```text
+/api/root
+/api/subclass/pcid/{id}
+```
+
+可以共用同一個：
+
+```python
+get_subclasses_by_pcid()
+```
+
+### 7. vd_objectlist Reuse
+
+`public.vd_objectlist` 用來：
+
+```text
+輸入 cid
+→ 找到該 Class 底下的 Object
+```
+
+例如：
+
+```sql
+SELECT *
+FROM public.vd_objectlist
+WHERE cid = 2
+ORDER BY oid;
+```
+
+可取得：
+
+```text
+上傳資料集
+資料品質檢查
+版本管理
+```
+
+API 改為呼叫：
+
+```python
+get_objects_by_cid()
+```
+
+單筆 Object 詳細資料則改為：
+
+```python
+get_object_by_oid()
+```
+
+### 8. W08 重點
+
+1. Schema 是 Database 內的 namespace。
+2. 不同 Schema 可以存在同名 Table。
+3. `search_path` 決定未指定 Schema 時的搜尋順序。
+4. `LEFT JOIN + COUNT()` 可保留沒有 Object 的 Class。
+5. View 可整理常用查詢。
+6. Repository 可集中管理 SQL。
+7. 不同 API 可以共用相同 Repository Function，減少重複程式碼。

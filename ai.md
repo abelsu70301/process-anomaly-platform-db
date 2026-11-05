@@ -906,3 +906,189 @@ psql/process_vdata.sql
 3. 修正測試資料重複執行可能重複 INSERT 的問題。
 4. 排除 `BIG5` 與 `UTF8` Client Encoding 錯誤。
 5. Commit 前發現並刪除誤建立的空白 `api/process_vdata.sql`。
+
+---
+
+## W08 AI Coding / Debug Record
+
+### 1. SQL 字串拼接缺少空白造成 500
+
+#### 問題
+
+修改 subclass API 加入 `ORDER BY cid` 後，Swagger 回傳：
+
+```text
+500 Internal Server Error
+```
+
+Terminal 顯示：
+
+```text
+sqlalchemy.exc.ProgrammingError:
+(psycopg.errors.SyntaxError) syntax error at or near "="
+LINE 1: SELECT * FROM vd_subclassWHERE pcid = $1 ORDER BY cid
+```
+
+實際 SQL 變成：
+
+```sql
+SELECT * FROM vd_subclassWHERE pcid = :pcid ORDER BY cid
+```
+
+其中：
+
+```text
+vd_subclassWHERE
+```
+
+中間缺少空白。
+
+#### 原因
+
+Python 相鄰字串會自動串接：
+
+```python
+"SELECT * FROM vd_subclass"
+"WHERE pcid = :pcid"
+```
+
+會變成：
+
+```text
+SELECT * FROM vd_subclassWHERE pcid = :pcid
+```
+
+因此 SQL 語法錯誤。
+
+#### 修正
+
+改為：
+
+```python
+text(
+    "SELECT * FROM vd_subclass "
+    "WHERE pcid = :pcid "
+    "ORDER BY cid"
+)
+```
+
+注意每段 SQL 字串尾端保留空白。
+
+修正後 API 可正常回傳 `200 OK`。
+
+---
+
+### 2. Protected API 回傳 401 Unauthorized
+
+#### 問題
+
+測試：
+
+```text
+GET /api/subclass/pcid/1
+GET /api/subclass/objectlist/cid/2
+```
+
+時收到：
+
+```text
+401 Unauthorized
+```
+
+回傳：
+
+```json
+{
+  "detail": "Not authenticated"
+}
+```
+
+#### 原因
+
+`subclass.py` 的 Router 有：
+
+```python
+dependencies=[Depends(get_current_member)]
+```
+
+因此 `/api/subclass/...` 底下的 API 都需要有效的：
+
+```text
+access_token
+```
+
+Cookie。
+
+當 Cookie 不存在或 JWT 已過期時，API 會回傳 401。
+
+#### 處理方式
+
+重新產生測試 JWT：
+
+```powershell
+python -c "from app.core.security import create_access_token; print(create_access_token(1))"
+```
+
+再將新的 Token 設定為瀏覽器的：
+
+```text
+access_token
+```
+
+Cookie。
+
+確認 401 是 Authentication 正常生效，不是 API 查詢錯誤。
+
+---
+
+### 3. FastAPI Swagger 路徑錯誤
+
+#### 問題
+
+重新啟動 FastAPI 後開啟：
+
+```text
+http://127.0.0.1:8001/docs
+```
+
+與：
+
+```text
+http://127.0.0.1:8001/openapi.json
+```
+
+皆收到：
+
+```json
+{
+  "detail": "Not Found"
+}
+```
+
+#### 原因
+
+`main.py` 中已自訂：
+
+```python
+app = FastAPI(
+    root_path="/s115321542",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json"
+)
+```
+
+因此 Swagger 並不是使用 FastAPI 預設路徑。
+
+#### 正確路徑
+
+Swagger：
+
+```text
+http://127.0.0.1:8001/api/docs
+```
+
+OpenAPI：
+
+```text
+http://127.0.0.1:8001/api/openapi.json
+```

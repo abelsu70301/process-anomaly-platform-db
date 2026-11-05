@@ -743,3 +743,221 @@ AI 協助、實際修改與問題排查紀錄：
 ```text
 ai.md
 ```
+
+## Current Progress
+
+目前已完成 Database 課程 W01～W08 的主要練習與 API 整合。
+
+### Database
+
+目前使用：
+
+- PostgreSQL
+- FastAPI
+- SQLAlchemy
+- Alembic
+
+已完成：
+
+- Notes / Users 基礎資料表
+- Class / Inheritance / Object 關聯結構
+- Database Views
+- Subclass / Object List / Object Detail API
+
+### Authentication
+
+目前已完成基礎 Authentication 架構：
+
+- `member` Table
+- JWT Access Token
+- Cookie 驗證
+- `get_current_member`
+- Protected API Router
+- `/api/auth/me`
+
+Google OIDC 正式登入目前暫未實作。
+
+### EER Practice
+
+新增：
+
+```text
+process_eer
+```
+
+Schema，作為 EER 練習模型。
+
+目前結構：
+
+```text
+Object
+├─ Dataset
+├─ Model
+└─ AnalysisRun
+```
+
+目前測試資料使用 AI4I 2020。
+
+```text
+Dataset
+→ AI4I 2020
+
+Model
+→ AI4I Failure Predictor
+→ Logistic Regression
+
+AnalysisRun
+→ Dataset + Model + Threshold
+```
+
+### Schema
+
+目前 `fastapi_dev` 主要包含：
+
+```text
+fastapi_dev
+├─ public
+└─ process_eer
+```
+
+其中：
+
+- `public`：主要應用程式資料表、Views 與 API 資料來源。
+- `process_eer`：EER 練習模型。
+
+已練習：
+
+- Schema namespace
+- 同名 Table 隔離
+- `search_path`
+- `schema.table` 明確指定資料來源
+
+例如目前同時存在：
+
+```text
+public.object
+process_eer.object
+```
+
+但兩者用途不同。
+
+### Reuse Data Views
+
+`public.vd_subclass` 已加入：
+
+```text
+n
+```
+
+欄位，用來表示每個 Child Class 直接關聯的 Object 數量。
+
+目前分類：
+
+```text
+首頁
+└─ 製程異常分析平台
+   ├─ 資料管理
+   ├─ 分析設定
+   ├─ 分析結果
+   ├─ 歷史紀錄
+   └─ 系統設定
+```
+
+其中「資料管理」目前包含：
+
+```text
+上傳資料集
+資料品質檢查
+版本管理
+```
+
+### Repository Reuse
+
+新增：
+
+```text
+app/repositories/subclass.py
+```
+
+將 subclass / object 相關 SQL 查詢集中管理。
+
+目前共用函式：
+
+```python
+get_subclasses_by_pcid()
+get_objects_by_cid()
+get_object_by_oid()
+```
+
+目前架構：
+
+```text
+API Route
+↓
+Repository Function
+↓
+Database View
+↓
+PostgreSQL
+```
+
+這樣可以減少 API Route 中重複撰寫 SQL。
+
+### Current APIs
+
+目前主要 API：
+
+```text
+GET /api/root
+GET /api/subclass/pcid/{id}
+GET /api/subclass/objectlist/cid/{id}
+GET /api/subclass/object/{id}
+GET /api/auth/me
+```
+
+其中：
+
+```text
+/api/root
+/api/subclass/pcid/{id}
+```
+
+皆共用：
+
+```python
+get_subclasses_by_pcid()
+```
+
+完成 W08 Reuse 的練習。
+
+### Project Direction
+
+本專案目前以：
+
+```text
+製程異常分析與可疑因子輔助平台
+```
+
+為主要應用方向。
+
+預計系統流程：
+
+```text
+製程資料上傳
+↓
+資料品質檢查
+↓
+資料前處理
+↓
+異常分類 / 模型分析
+↓
+Precision / Recall / F1
+↓
+可疑因子排序
+↓
+分析結果保存
+↓
+歷史紀錄與工程師備註
+```
+
+目前 Database 課程仍以資料庫設計、EER、View、Authentication 與 API Reuse 為主要練習內容，後續再逐步整合至完整平台資料模型。

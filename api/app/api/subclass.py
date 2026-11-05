@@ -5,6 +5,8 @@ from sqlalchemy import text
 from app.core.database import get_db
 from app.core.auth import get_current_member
 
+from app.repositories.subclass import get_subclasses_by_pcid, get_objects_by_cid, get_object_by_oid
+
 router = APIRouter(
     prefix="/subclass",
     tags=["subclass"],
@@ -13,33 +15,17 @@ router = APIRouter(
 #prefix="/subclass"：這個檔案底下的 API 都會以 /subclass 開頭
 
 @router.get("/pcid/{id}")
-def get_subclass(id: int, db: Session = Depends(get_db)):
-    result = db.execute(
-        text("SELECT * FROM vd_subclass WHERE pcid = :pcid"),
-        {"pcid": id}
-    )
+def get_subclass(id: int, db: Session = Depends(get_db)):  #呼叫 repository 共用函式
+    return get_subclasses_by_pcid(db, id)  #repository 查 vd_subclass，並回傳結果
 
-    rows = result.mappings().all()
-    return rows
 
 #GET /api/subclass/objectlist/cid/2
 @router.get("/objectlist/cid/{id}")
 def get_objectlist(id: int, db: Session = Depends(get_db)):
-    result = db.execute(
-        text("SELECT * FROM vd_objectlist WHERE cid = :cid ORDER BY oid"),
-        {"cid": id}
-    )
+    return get_objects_by_cid(db, id)
 
-    rows = result.mappings().all()
-    return rows
 
 #vd_object 的單筆詳細資料 API
 @router.get("/object/{id}")
 def get_object(id: int, db: Session = Depends(get_db)):
-    result = db.execute(
-        text("SELECT * FROM vd_object WHERE oid = :oid"),
-        {"oid": id}
-    )
-
-    row = result.mappings().first()
-    return row
+    return get_object_by_oid(db, id)

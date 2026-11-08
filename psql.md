@@ -2109,3 +2109,301 @@ get_object_by_oid()
 5. View 可整理常用查詢。
 6. Repository 可集中管理 SQL。
 7. 不同 API 可以共用相同 Repository Function，減少重複程式碼。
+
+## W09 進階查詢：分頁、篩選、搜尋
+
+### 1. Pagination 分頁
+
+本週先從資料分頁開始，避免 API 一次回傳過多資料。
+
+SQL 使用：
+
+```sql
+LIMIT
+OFFSET
+```
+
+例如：
+
+```sql
+SELECT *
+FROM public.vd_objectlist
+WHERE cid = 2
+ORDER BY oid
+LIMIT 2
+OFFSET 0;
+```
+
+代表：
+
+```text
+每頁最多 2 筆
+從第 0 筆開始
+```
+
+第二頁：
+
+```sql
+SELECT *
+FROM public.vd_objectlist
+WHERE cid = 2
+ORDER BY oid
+LIMIT 2
+OFFSET 2;
+```
+
+分頁公式：
+
+```text
+offset = (page - 1) × page_size
+```
+
+例如：
+
+```text
+page = 2
+page_size = 2
+
+offset = (2 - 1) × 2
+       = 2
+```
+
+---
+
+### 2. Repository 加入分頁參數
+
+修改：
+
+```text
+app/repositories/subclass.py
+```
+
+`get_objects_by_cid()` 加入：
+
+```python
+page
+page_size
+```
+
+並計算：
+
+```python
+offset = (page - 1) * page_size
+```
+
+SQL 加入：
+
+```sql
+LIMIT :page_size
+OFFSET :offset
+```
+
+讓 Repository 可以依照 API 傳入的頁碼與每頁筆數查詢資料。
+
+---
+
+### 3. FastAPI Query Parameter
+
+修改：
+
+```text
+GET /api/subclass/objectlist/cid/{id}
+```
+
+加入：
+
+```python
+page
+page_size
+```
+
+例如：
+
+```text
+/api/subclass/objectlist/cid/2?page=1&page_size=2
+```
+
+代表：
+
+```text
+cid = 2
+第 1 頁
+每頁 2 筆
+```
+
+不輸入參數時使用預設值：
+
+```text
+page = 1
+page_size = 2
+```
+
+---
+
+### 4. Query Parameter 驗證
+
+使用 FastAPI `Query`：
+
+```python
+page: int = Query(1, ge=1)
+page_size: int = Query(2, ge=1, le=100)
+```
+
+其中：
+
+```text
+ge = greater than or equal
+le = less than or equal
+```
+
+限制：
+
+```text
+page >= 1
+1 <= page_size <= 100
+```
+
+避免 `page = 0` 或負數等不合理輸入進入 SQL 查詢。
+
+---
+
+### 5. Filter 篩選
+
+新增可選參數：
+
+```python
+class_name: str | None = None
+```
+
+如果有輸入 `class_name`，Repository 動態加入：
+
+```sql
+AND class_name = :class_name
+```
+
+例如：
+
+```text
+class_name = 資料管理
+```
+
+代表只取得符合「資料管理」的資料。
+
+沒有輸入 `class_name` 時，則不加入此篩選條件。
+
+---
+
+### 6. Search 搜尋
+
+新增：
+
+```python
+search: str | None = None
+```
+
+SQL 使用 PostgreSQL：
+
+```sql
+ILIKE
+```
+
+進行不分大小寫的模糊搜尋：
+
+```sql
+AND object_title ILIKE :search
+```
+
+Python 將搜尋字串轉成：
+
+```python
+params["search"] = f"%{search}%"
+```
+
+例如：
+
+```text
+search = 資料
+```
+
+等同搜尋：
+
+```sql
+ILIKE '%資料%'
+```
+
+可取得：
+
+```text
+上傳資料集
+資料品質檢查
+```
+
+搜尋：
+
+```text
+search = 版本
+```
+
+可取得：
+
+```text
+版本管理
+```
+
+搜尋不存在的關鍵字則回傳：
+
+```json
+[]
+```
+
+---
+
+### 7. Pagination + Filter + Search
+
+目前 API 已可同時接受：
+
+```text
+page
+page_size
+class_name
+search
+```
+
+例如：
+
+```text
+GET /api/subclass/objectlist/cid/2
+?page=1
+&page_size=10
+&class_name=資料管理
+&search=資料
+```
+
+流程：
+
+```text
+HTTP Request
+↓
+FastAPI Query Parameters
+↓
+Repository
+↓
+建立 SQL 條件
+↓
+PostgreSQL
+↓
+回傳 JSON
+```
+
+---
+
+### 8. W09 重點
+
+1. `LIMIT`：限制回傳筆數。
+2. `OFFSET`：跳過前面的資料。
+3. `page` 與 `page_size` 可以實作分頁。
+4. FastAPI Query Parameter 可以接收查詢條件。
+5. `Query(..., ge=, le=)` 可以驗證輸入範圍。
+6. Filter 使用精確條件，例如 `class_name = ...`。
+7. Search 使用 `ILIKE` 進行模糊搜尋。
+8. Pagination、Filter、Search 可以組合使用。

@@ -961,3 +961,41 @@ Precision / Recall / F1
 ```
 
 目前 Database 課程仍以資料庫設計、EER、View、Authentication 與 API Reuse 為主要練習內容，後續再逐步整合至完整平台資料模型。
+
+### Advanced Query
+
+目前 `/api/subclass/objectlist/cid/{id}` 已支援進階查詢參數：
+
+```text
+page
+page_size
+class_name
+search
+```
+
+已完成：
+
+- Pagination：使用 `LIMIT` / `OFFSET` 進行分頁。
+- Query Validation：限制 `page >= 1`、`page_size` 為 1～100。
+- Filter：可依 `class_name` 進行精確篩選。
+- Search：使用 PostgreSQL `ILIKE` 進行 `object_title` 關鍵字搜尋。
+
+例如：
+
+```text
+GET /api/subclass/objectlist/cid/2?page=1&page_size=10&class_name=資料管理&search=資料
+```
+
+目前資料查詢流程：
+
+```text
+API Query Parameters
+↓
+Repository Function
+↓
+Database View
+↓
+PostgreSQL
+↓
+JSON Response
+```

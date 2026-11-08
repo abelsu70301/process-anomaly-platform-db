@@ -1092,3 +1092,111 @@ OpenAPI：
 ```text
 http://127.0.0.1:8001/api/openapi.json
 ```
+
+## W09 AI Coding / Debug Record
+
+### 1. Function Parameter 少逗號造成 SyntaxError
+
+#### 問題
+
+修改 `get_objectlist()` 加入：
+
+```python
+page
+page_size
+```
+
+後，Uvicorn 啟動失敗。
+
+Terminal 顯示：
+
+```text
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+```
+
+錯誤位置在：
+
+```python
+page_size: int = 2
+```
+
+#### 原因
+
+前一個參數後面少了逗號，例如：
+
+```python
+page: int = 1
+page_size: int = 2
+```
+
+#### 修正
+
+改為：
+
+```python
+page: int = 1,
+page_size: int = 2,
+```
+
+Python Function Parameters 之間必須使用逗號分隔。
+
+---
+
+### 2. SQL 字串缺少空白造成 500
+
+#### 問題
+
+加入 Pagination 後測試 API，Swagger 回傳：
+
+```text
+500 Internal Server Error
+```
+
+Terminal 顯示：
+
+```text
+A value is required for bind parameter 'page_sizeOFFSET'
+```
+
+實際產生的 SQL 出現：
+
+```text
+ORDER BY oidLIMIT
+page_sizeOFFSET
+```
+
+#### 原因
+
+Python 相鄰字串自動串接，但 SQL 字串尾端沒有保留空白。
+
+例如：
+
+```python
+"ORDER BY oid"
+"LIMIT :page_size"
+"OFFSET :offset"
+```
+
+會變成：
+
+```text
+ORDER BY oidLIMIT :page_sizeOFFSET :offset
+```
+
+#### 修正
+
+改為：
+
+```python
+text(
+    "SELECT * FROM public.vd_objectlist "
+    "WHERE cid = :cid "
+    "ORDER BY oid "
+    "LIMIT :page_size "
+    "OFFSET :offset"
+)
+```
+
+注意 SQL 各段字串之間需要保留空白。
+
+修正後 Pagination API 可正常回傳資料。

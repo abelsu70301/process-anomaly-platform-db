@@ -19,15 +19,39 @@ def get_subclasses_by_pcid(
 
 def get_objects_by_cid(
     db: Session,
-    cid: int
+    cid: int,
+    page: int,
+    page_size: int,
+    class_name: str | None = None,
+    search: str | None = None
 ):
+    offset = (page - 1) * page_size
+
+    sql = """
+        SELECT *
+        FROM public.vd_objectlist
+        WHERE cid = :cid
+    """
+
+    params = {
+        "cid": cid,
+        "page_size": page_size,
+        "offset": offset
+    }
+
+    if class_name is not None:  #有傳class_name :加上篩選條件，若沒有 :不篩選，只照原本查
+        sql += "AND class_name = :class_name"
+        params["class_name"] = class_name
+
+    if search is not None:
+        sql += "AND object_title ILIKE :search"
+        params["search"] = f"%{search}%"
+
+    sql += " ORDER BY oid LIMIT :page_size OFFSET :offset"
+
     result = db.execute(
-        text(
-            "SELECT * FROM public.vd_objectlist "
-            "WHERE cid = :cid "
-            "ORDER BY oid"
-        ),
-        {"cid": cid}
+        text(sql),
+        params
     )
 
     return result.mappings().all()

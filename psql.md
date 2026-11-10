@@ -2407,3 +2407,251 @@ PostgreSQL
 6. Filter 使用精確條件，例如 `class_name = ...`。
 7. Search 使用 `ILIKE` 進行模糊搜尋。
 8. Pagination、Filter、Search 可以組合使用。
+
+## W10 錯誤處理、Logging、Middleware
+
+### 1. Exception Handling
+
+加入統一錯誤回應格式：
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "HTTP_404",
+    "message": "Not Found"
+  }
+}
+```
+
+目前處理：
+
+```text
+401 / 404 → HTTP Exception
+422       → VALIDATION_ERROR
+500       → INTERNAL_ERROR
+```
+
+使用 `request.state` 暫存：
+
+```python
+request.state.error_code
+request.state.error_message
+```
+
+讓 Middleware 後續可將錯誤資訊寫入 Log。
+
+---
+
+### 2. Middleware 與 Request ID
+
+Middleware 會攔截每一個 HTTP Request：
+
+```text
+Request
+↓
+產生 request_id
+↓
+執行 API
+↓
+取得 status_code / duration
+↓
+建立 Log
+↓
+Response
+```
+
+每次 Request 使用：
+
+```python
+request.state.request_id = uuid.uuid4()
+```
+
+並在 Response Header 加入：
+
+```text
+X-Request-ID
+```
+
+每次 Request 的 `request_id` 都不同。
+
+---
+
+### 3. PostgreSQL API Logging
+
+建立：
+
+```text
+public.api_logs
+```
+
+主要欄位：
+
+```text
+id
+created_at
+session_id
+request_id
+method
+path
+status_code
+duration_ms
+error_code
+message
+```
+
+FastAPI 透過 `save_log()` 將 Middleware 收集的資料寫入 PostgreSQL。
+
+SQL 使用 Parameterized Query：
+
+```sql
+VALUES (%s, %s, ...)
+```
+
+避免直接使用字串組合 SQL。
+
+---
+
+### 4. Background Logging
+
+將 `save_log()` 改為 async：
+
+```python
+async def save_log(data):
+```
+
+並使用：
+
+```python
+psycopg.AsyncConnection.connect()
+```
+
+Middleware 使用 `BackgroundTasks`：
+
+```python
+tasks.add_task(save_log, log_data)
+```
+
+讓 Log 在 Response 後執行，減少 Logging 對 API 回應時間的影響。
+
+---
+
+### 5. Session Tracking
+
+建立：
+
+```text
+public.api_sessions
+```
+
+主要欄位：
+
+```text
+id
+mid
+ip
+started_at
+last_seen_at
+ended_at
+```
+
+瀏覽器使用：
+
+```text
+api_session
+```
+
+HttpOnly Cookie 保存 Session UUID。
+
+同一個瀏覽器：
+
+```text
+session_id → 相同
+request_id → 每次不同
+```
+
+`api_sessions` 與 `api_logs` 為：
+
+```text
+1 : N
+```
+
+---
+
+### 6. Session 與登入會員
+
+JWT 驗證成功後：
+
+```python
+request.state.member_id = member_id
+```
+
+並寫入：
+
+```text
+api_sessions.mid
+```
+
+公開 API 沒有 member id，因此使用：
+
+```sql
+mid = COALESCE(EXCLUDED.mid, api_sessions.mid)
+```
+
+避免公開 API 將已登入 Session 的 `mid` 覆蓋為 `NULL`。
+
+---
+
+### 7. Log 查詢
+
+最近 API 紀錄：
+
+```sql
+SELECT *
+FROM public.api_logs
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+錯誤紀錄：
+
+```sql
+SELECT *
+FROM public.api_logs
+WHERE status_code >= 400
+ORDER BY created_at DESC;
+```
+
+統計錯誤次數：
+
+```sql
+SELECT path, status_code, COUNT(*) AS error_count
+FROM public.api_logs
+WHERE status_code >= 400
+GROUP BY path, status_code
+ORDER BY error_count DESC;
+```
+
+平均執行時間：
+
+```sql
+SELECT
+    path,
+    COUNT(*) AS requests,
+    ROUND(AVG(duration_ms)::numeric, 2) AS avg_ms
+FROM public.api_logs
+GROUP BY path
+ORDER BY avg_ms DESC;
+```
+
+---
+
+### 8. W10 重點
+
+- Exception Handler：統一錯誤回應。
+- Middleware：集中處理 Request Tracking。
+- Request ID：識別單一 Request。
+- Session ID：識別同一瀏覽器工作階段。
+- `api_sessions` 與 `api_logs` 為 1:N。
+- BackgroundTasks 用於 Response 後寫入 Log。
+- Log 不應記錄 JWT、Password、Cookie 等敏感資訊。

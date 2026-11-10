@@ -999,3 +999,15 @@ PostgreSQL
 ↓
 JSON Response
 ```
+
+### Error Handling and API Logging
+
+目前 FastAPI 已完成基本錯誤處理與 API Logging：
+
+- 統一處理 401、404、422、500 錯誤格式。
+- Middleware 產生 `request_id`，並記錄 path、status code、duration。
+- 使用 `api_session` Cookie 追蹤 Session。
+- PostgreSQL 使用 `api_sessions` 與 `api_logs` 儲存操作紀錄。
+- Session 可對應登入會員 `mid`，並與多筆 API Log 建立 1:N 關係。
+- 使用 `BackgroundTasks` 搭配 async psycopg 寫入 Log。
+- 可查詢錯誤紀錄、錯誤次數與 API 平均執行時間。

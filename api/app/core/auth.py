@@ -38,4 +38,7 @@ def get_current_member(
             detail="Member not found or inactive"
         )
 
+    request.state.member_id = member_id
+    #把「這次 Request 已驗證的會員 ID」暫存在這次 Request 專用的 state 裡
+
     return member

@@ -1,10 +1,15 @@
 #因為 Note CRUD 已經移到 app/api/notes.py，資料庫 Session、404、Note Model 都會在那邊使用
-from fastapi import FastAPI   
+from fastapi import FastAPI, Request, BackgroundTasks
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles  #StaticFiles → 讓 FastAPI 可以提供靜態檔案（圖片、CSS、JS 等等）
 from app.api import notes, users, subclass, auth, root  #把 notes.py 裡的 API 路徑都掛到這個 FastAPI 應用程式裡
 from pydantic import BaseModel
-
+import uuid  #讓每一個 Request 都有自己的唯一編號
+import time
+from app.logging_db import save_log, save_session
 
 class Item(BaseModel) : #class 定義類別 #Item 類別名稱 #繼承BaseModel
     name : str
@@ -17,12 +22,105 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
+def error_response(request: Request, status: int, code: str, message: str):
+    request.state.error_code = code
+    request.state.error_message = message
+    #Exception Handler 發現錯誤 - 把錯誤代碼和訊息先存在這次 request 裡
+
+    return JSONResponse(
+        status_code=status,
+        content={
+            "success": False,
+            "error": {
+                "code": code,
+                "message": message
+            }
+        }
+    )
+
+#任何API request 都先經過這個 middleware
+@app.middleware("http")  #request進來 - 產生uuid - 存到request.state.request_id - 執行真正API - 把Request ID 放進 Response Header - 回傳
+async def request_id_middleware(request: Request, call_next):
+    start = time.perf_counter()
+
+    request.state.request_id = uuid.uuid4()
+
+    session_id = request.cookies.get("api_session")  #看瀏覽器有沒有帶 api_session cookie
+
+    client_ip = request.client.host if request.client else None
+
+    if session_id is None:  #若沒有，產生新的 UUID
+        session_id = str(uuid.uuid4())  #若有，沿用原本的值
+
+    request.state.session_id = session_id
+    request.state.member_id = None
+    request.state.error_code = None
+    request.state.error_message = None
+
+    try:
+        response = await call_next(request)
+
+    except Exception:
+        response = error_response(
+            request, 500, "INTERNAL_ERROR", "伺服器內部錯誤"
+        )
+
+    if "api_session" not in request.cookies:  #如果這次 Request 原本沒有 api_session
+        response.set_cookie(key="api_session", value=session_id, httponly= True, samesite="lax")
+        #httponly= True: 代表 JavaScript 不能直接讀這個 Cookie，安全性比較好  #samesite="lax": 限制跨網站情境下 Cookie 的傳送方式
+    duration = (time.perf_counter() - start) * 1000
+
+    log_data = {  #把原本 Terminal 上看到的資訊包成一個 dictionary
+        "session_id": session_id,
+        "request_id": request.state.request_id,
+        "method": request.method,
+        "path": request.url.path,
+        "status_code": response.status_code,
+        "duration_ms": duration,
+        "error_code": request.state.error_code,
+        "message": request.state.error_message
+
+    }
+
+    print(
+        f"{request.method} "
+        f"{request.url.path} "
+        f"{response.status_code} "
+        f"{duration:.2f} ms "
+        f"request_id={request.state.request_id}"
+    )
+
+    tasks = BackgroundTasks()  #API → 把 save_log 放進 BackgroundTasks
+    tasks.add_task(save_session, session_id, client_ip, request.state.member_id)
+    tasks.add_task(save_log, log_data)
+
+    response.background = tasks
+
+    response.headers["X-Request-ID"] = str(
+        request.state.request_id
+    )
+
+    return response
+
+@app.exception_handler(StarletteHTTPException)  #FastAPI 只要遇到 HTTP 類型的錯誤，就交給 http_error() 處理
+async def http_error(request: Request, exc: StarletteHTTPException):
+    return error_response(request, exc.status_code, f"HTTP_{exc.status_code}", str(exc.detail))  #exc.status_code, Ex:404  #exc.detail, Ex:Not found
+    #error_response() 把它整理成我們統一的 JSON 格式
 #從目前的main.py檔案，往上找三層資料夾，找到 WEB/site 這個資料夾進入
 PUBLIC_DIRECTORY = (
     Path(__file__).resolve().parents[3]
     / "WEB"
     / "site"
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    return error_response(request, 422, "VALIDATION_ERROR", "請求參數驗證失敗")  #422: FastAPI 驗證輸入資料失敗 → RequestValidationError
+
+@app.exception_handler(Exception)
+async def unexpected_error(request: Request, exc: Exception):
+    return error_response(request, 500, "INTERNAL_ERROR", "伺服器內部錯誤")
+
 
 app.include_router(notes.router, prefix="/api")  #notes 裡所有 API 註冊到 FastAPI，並且在網址前面統一加上 /api
 app.include_router(users.router, prefix="/api")

@@ -1200,3 +1200,207 @@ text(
 注意 SQL 各段字串之間需要保留空白。
 
 修正後 Pagination API 可正常回傳資料。
+
+## W10 AI Coding / Debug Record
+
+### 1. AsyncConnection 使用方式錯誤
+
+#### 問題
+
+將 Logging 改成 async 後出現：
+
+```text
+AttributeError: 'str' object has no attribute 'notice_handler'
+```
+
+錯誤寫法：
+
+```python
+psycopg.AsyncConnection(DATABASE_URL)
+```
+
+#### 修正
+
+改成：
+
+```python
+psycopg.AsyncConnection.connect(DATABASE_URL)
+```
+
+---
+
+### 2. SQL Placeholder 數量不一致
+
+#### 問題
+
+加入 `session_id` 後出現：
+
+```text
+the query has 5 placeholders but 6 parameters were passed
+```
+
+#### 原因
+
+SQL 的 `%s` 數量與 Python 傳入參數數量不同。
+
+#### 修正
+
+確認：
+
+```text
+INSERT 欄位數
+=
+%s 數量
+=
+Python 參數數量
+```
+
+---
+
+### 3. INSERT 欄位最後多逗號
+
+#### 問題
+
+出現：
+
+```text
+syntax error at or near ")"
+```
+
+錯誤：
+
+```sql
+INSERT INTO public.api_sessions (
+    id,
+    mid,
+    ip,
+)
+```
+
+#### 修正
+
+移除最後多餘逗號：
+
+```sql
+INSERT INTO public.api_sessions (
+    id,
+    mid,
+    ip
+)
+```
+
+---
+
+### 4. 500 Exception 中斷 Middleware 後續 Logging
+
+#### 問題
+
+測試 `RuntimeError` 時，Exception 從：
+
+```python
+await call_next(request)
+```
+
+直接往外拋出，後面的 Logging 無法繼續執行。
+
+#### 修正
+
+在 Middleware 加入：
+
+```python
+try:
+    response = await call_next(request)
+
+except Exception:
+    response = error_response(
+        request,
+        500,
+        "INTERNAL_ERROR",
+        "伺服器內部錯誤"
+    )
+```
+
+讓 500 發生後仍可繼續記錄 Log。
+
+---
+
+### 5. 公開 API 將 Session 的 mid 覆蓋為 NULL
+
+#### 問題
+
+登入後：
+
+```text
+api_sessions.mid = 1
+```
+
+但呼叫公開 API 後，`mid` 又變成 `NULL`。
+
+#### 原因
+
+原本：
+
+```sql
+mid = EXCLUDED.mid
+```
+
+公開 API 沒有會員資料，因此會以 `NULL` 覆蓋原本的 `mid`。
+
+#### 修正
+
+改成：
+
+```sql
+mid = COALESCE(
+    EXCLUDED.mid,
+    api_sessions.mid
+)
+```
+
+讓新 `mid` 為 `NULL` 時保留原本會員 ID。
+
+---
+
+### 6. Swagger 未真正送出部分無效參數
+
+#### 問題
+
+Swagger 測試：
+
+```text
+page = 0
+```
+
+會先在前端阻擋，沒有真的送 Request 到 FastAPI。
+
+#### 修正
+
+改用瀏覽器網址列測試：
+
+```text
+page=abc
+```
+
+成功觸發：
+
+```text
+422 VALIDATION_ERROR
+```
+
+---
+
+### W10 Debug 心得
+
+本週除了 SQL 與 Python 語法問題，也遇到 Session 狀態更新與 Middleware 執行流程的邏輯錯誤。
+
+實作後需要實際：
+
+```text
+測 API
+→ 看 Terminal
+→ 查 PostgreSQL
+→ 比較預期與實際資料
+→ 再修正
+```
+
+不能只確認程式能啟動就視為正確。
